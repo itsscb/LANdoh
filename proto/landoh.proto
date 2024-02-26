@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package landoh;
+
+service landoh {
+    rpc GetDirectory (DirectoryRequest) returns (stream FileResponse);
+}
+
+message DirectoryRequest {
+    string name = 1;
+}
+
+message FileResponse {
+    string path = 1;
+    repeated uint32 chunk = 2;
+}

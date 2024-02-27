@@ -1,8 +1,8 @@
 use std::{
     error::Error,
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use landoh::landoh::{landoh_client::LandohClient, DirectoryRequest};
@@ -21,10 +21,9 @@ impl Client {
         Client { share_path }
     }
     pub async fn get_directory(&self, name: String, addr: String) -> Result<(), Box<dyn Error>> {
-        dbg!(
+        println!(
             "LANdoh::get_directory::{:?}::{} (CLIENT / CONNECTING)",
-            &addr,
-            &name
+            &addr, &name
         );
         let mut client = LandohClient::connect(addr).await?;
 
@@ -34,11 +33,13 @@ impl Client {
 
         let mut stream = client.get_directory(request).await.unwrap().into_inner();
 
+        let mut curr_file = "".to_string();
         while let Some(resp) = stream.next().await {
             let r = resp.unwrap();
-            dbg!("LANdoh::get_directory::{} (CLIENT / RECEIVED)", &r.path);
 
             let path: String;
+            let print = curr_file != r.path;
+            curr_file = r.path.clone();
 
             if r.path.starts_with("./") {
                 path = r.path.replace("./", "");
@@ -46,12 +47,24 @@ impl Client {
                 path = r.path;
             }
 
+            if print {
+                println!("receiving: {}", &path);
+            }
+
             let path = PathBuf::from(&self.share_path).join(path);
             let parent = path.parent().unwrap();
 
             fs::create_dir_all(&parent)?;
 
-            let mut file = File::create(path)?;
+            let mut file = OpenOptions::new();
+            if Path::new(&path).exists() {
+                file.append(true);
+            } else {
+                file.write(true);
+            }
+
+            let mut file = file.create(true).open(path)?;
+
             let c: Vec<u8> = r.chunk.into_iter().map(|i| i as u8).collect();
             file.write_all(&c)?;
         }

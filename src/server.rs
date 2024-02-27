@@ -4,19 +4,17 @@ use std::{
     io::{BufReader, Read},
     net::SocketAddr,
     path::PathBuf,
+    pin::Pin,
 };
 
 use tokio::sync::mpsc::{self, Sender};
-use tokio_stream::wrappers::ReceiverStream;
-use tonic::transport::Server as tServer;
+use tokio_stream::{wrappers::ReceiverStream, Stream};
+use tonic::{transport::Server as tServer, Status};
 use tonic::{Request, Response};
 
 use walkdir::WalkDir;
 
-use crate::{
-    landoh::{self, DirectoryRequest, FileResponse},
-    DirectoryResult, ResponseStream,
-};
+use landoh_proto::{landoh_server, DirectoryRequest, FileResponse};
 
 mod landoh_proto {
     include!("landoh.rs");
@@ -25,11 +23,14 @@ mod landoh_proto {
         tonic::include_file_descriptor_set!("landoh_descriptor");
 }
 
+type ResponseStream = Pin<Box<dyn Stream<Item = Result<FileResponse, Status>> + Send>>;
+type DirectoryResult<T> = Result<Response<T>, Status>;
+
 #[derive(Debug, Default)]
 pub struct Server;
 
 #[tonic::async_trait]
-impl landoh::landoh_server::Landoh for Server {
+impl landoh_server::Landoh for Server {
     type GetDirectoryStream = ResponseStream;
 
     async fn get_directory(
@@ -62,7 +63,7 @@ impl Server {
             .unwrap();
 
         tServer::builder()
-            .add_service(landoh::landoh_server::LandohServer::new(Self))
+            .add_service(landoh_server::LandohServer::new(Self))
             .add_service(reflection_service)
             .serve(addr)
             .await?;
@@ -121,4 +122,15 @@ impl Server {
         }
         Ok(())
     }
+}
+
+#[allow(dead_code)]
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let addr: SocketAddr = "0.0.0.0:9001".parse()?;
+    let sv = Server::default();
+
+    sv.serve(addr).await?;
+
+    Ok(())
 }

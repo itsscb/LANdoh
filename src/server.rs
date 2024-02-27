@@ -56,8 +56,6 @@ impl landoh::landoh_server::Landoh for Server {
 
 impl Server {
     pub async fn serve(&self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
-        // let sv = Server::default();
-
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(landoh_proto::FILE_DESCRIPTOR_SET)
             .build()

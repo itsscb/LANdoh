@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package pb;
+
+service lan_doh {
+    rpc GetDirectory (GetDirectoryRequest) returns (GetDirectoryResponse);
+    rpc GetFile (GetFileRequest) returns (stream GetFileResponse);
+}
+
+message GetDirectoryRequest {
+    string name = 1;
+}
+
+message GetDirectoryResponse {
+    repeated string path = 1;
+}
+
+message GetFileRequest {
+    string path = 1;
+    optional uint32 from_bytes = 2;
+}
+
+message GetFileResponse {
+    oneof file_response {
+        uint32 chunk = 1;
+        FileMetaData meta_data = 2;
+    }
+}
+
+message FileMetaData {
+    uint32 file_size = 1;
+    string hash = 2;
+}

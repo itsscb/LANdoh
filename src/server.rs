@@ -1,6 +1,5 @@
 use std::{
     error::Error,
-    fmt::format,
     fs::File,
     io::{BufReader, Read},
     net::SocketAddr,
@@ -36,22 +35,32 @@ mod pb_proto {
         tonic::include_file_descriptor_set!("pb_descriptor");
 }
 
-#[derive(Debug, Default)]
-pub struct Server;
+#[derive(Debug)]
+pub struct Server {
+    directories: Vec<String>,
+}
 
 impl Server {
-    pub async fn serve(&self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
+    pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(pb_proto::FILE_DESCRIPTOR_SET)
             .build()
             .unwrap();
 
         tServer::builder()
-            .add_service(lan_doh_server::LanDohServer::new(Self))
+            .add_service(lan_doh_server::LanDohServer::new(self))
             .add_service(reflection_service)
             .serve(addr)
             .await?;
         Ok(())
+    }
+}
+
+impl Default for Server {
+    fn default() -> Self {
+        Server {
+            directories: vec![".".to_string()],
+        }
     }
 }
 
@@ -65,9 +74,16 @@ impl LanDoh for Server {
     ) -> Result<Response<GetDirectoryResponse>, Status> {
         let r = request.into_inner();
         let path = PathBuf::from(r.name.clone());
-        if !path.exists() {
+        if !self.directories.contains(&r.name) {
+            return Err(Status::invalid_argument(format!(
+                "invalid item: {}",
+                r.name
+            )));
+        }
+
+        if !&path.exists() {
             return Err(Status::not_found(format!(
-                "directory not found: {}",
+                "item is marked for sharing but could not be found: {}",
                 r.name
             )));
         }
@@ -84,8 +100,7 @@ impl LanDoh for Server {
             files.push(String::from(e.path().to_str().unwrap()));
         }
 
-        // unimplemented!("{}", "get_directory");
-        Ok(Response::new(GetDirectoryResponse { path: files }))
+        Ok(Response::new(GetDirectoryResponse { files: files }))
     }
 
     async fn get_file(
@@ -212,7 +227,9 @@ impl ServerOld {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let addr: SocketAddr = "0.0.0.0:9001".parse()?;
-    let sv = Server::default();
+    let sv = Server {
+        directories: vec!["testdir".to_string()],
+    };
 
     sv.serve(addr).await?;
 

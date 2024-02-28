@@ -12,7 +12,7 @@ message GetDirectoryRequest {
 }
 
 message GetDirectoryResponse {
-    repeated string path = 1;
+    repeated string files = 1;
 }
 
 message GetFileRequest {

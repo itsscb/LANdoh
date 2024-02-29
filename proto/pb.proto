@@ -28,6 +28,6 @@ message GetFileResponse {
 }
 
 message FileMetaData {
-    uint32 file_size = 1;
+    uint64 file_size = 1;
     string hash = 2;
 }

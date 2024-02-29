@@ -1,8 +1,9 @@
 use std::{
     error::Error,
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Seek, SeekFrom},
     net::SocketAddr,
+    os::unix::fs::MetadataExt,
     path::PathBuf,
     pin::Pin,
 };
@@ -107,14 +108,104 @@ impl LanDoh for Server {
         &self,
         request: Request<GetFileRequest>,
     ) -> Result<Response<Self::GetFileStream>, Status> {
-        unimplemented!("{}", "get_file");
-        // Ok(Response::new(Box::pin(GetFileResponse {
-        //     file_response: Some(frep::MetaData(FileMetaData {
-        //         file_size: 20 as u32,
-        //         hash: "blub".to_string(),
-        //     })),
-        // }))) as Self::GetFileStream
+        let r = request.into_inner();
+
+        let path = PathBuf::from(r.path);
+
+        let mut root_path = path.clone();
+
+        while root_path.has_root() {
+            match root_path.parent() {
+                Some(p) => root_path = p.to_path_buf(),
+                None => {
+                    if !self
+                        .directories
+                        .contains(&root_path.to_str().unwrap().to_string())
+                    {
+                        return Err(Status::invalid_argument(format!(
+                            "invalid item: {:?}",
+                            &path
+                        )));
+                    }
+                }
+            }
+        }
+
+        if !path.exists() {
+            return Err(Status::invalid_argument(format!(
+                "item is marked for sharing but could not be found: {:?}",
+                &path
+            )));
+        }
+
+        let size = path.metadata()?.size();
+
+        let mut start_bytes: u64;
+
+        match r.from_bytes {
+            Some(start) => {
+                start_bytes = start as u64;
+            }
+            None => {
+                start_bytes = 0;
+            }
+        }
+
         let (tx, rx) = mpsc::channel(128);
+
+        tokio::spawn(async move {
+            let chunk_size: usize = 1024 * 4;
+            loop {
+                let mut source_file: File;
+                match File::open(path.clone()) {
+                    Ok(f) => {
+                        source_file = f;
+                    }
+                    Err(err) => {
+                        println!("ERROR: failed to update stream client: {:?}", err);
+                        let e = Err(Status::internal(format!("{}", err)));
+                        tx.send(e.clone()).await;
+                        return e;
+                        // tx.send(err);
+                    }
+                };
+                let chunk: usize;
+                if size - start_bytes >= chunk_size as u64 {
+                    chunk = chunk_size;
+                } else if size - start_bytes > 0 {
+                    chunk = (size - start_bytes) as usize;
+                } else {
+                    let resp = GetFileResponse {
+                        file_response: Some(frep::MetaData(FileMetaData {
+                            file_size: size as u64,
+                            hash: "abc".to_string(),
+                        })),
+                    };
+                    tx.send(Ok(resp.clone())).await;
+                    return Ok(resp);
+                }
+
+                source_file.seek(SeekFrom::Start(start_bytes));
+
+                let mut buf = source_file.take(chunk as u64).bytes();
+
+                let resp = GetFileResponse {
+                    file_response: Some(frep::Chunk(chunk as u32)),
+                };
+
+                match tx.send(Ok(resp)).await {
+                    Ok(_) => {
+                        start_bytes += chunk_size as u64;
+                    }
+                    Err(err) => {
+                        println!("ERROR: failed to update stream client: {:?}", err);
+                        let e = Err(Status::internal(format!("{}", err)));
+                        tx.send(e.clone());
+                        return e;
+                    }
+                }
+            }
+        });
 
         let output_stream = ReceiverStream::new(rx);
 

@@ -12,22 +12,20 @@ message GetDirectoryRequest {
 }
 
 message GetDirectoryResponse {
-    repeated string files = 1;
+    repeated FileMetaData files = 1;
 }
 
 message GetFileRequest {
     string path = 1;
-    optional uint32 from_bytes = 2;
+    optional uint64 from_bytes = 2;
 }
 
 message GetFileResponse {
-    oneof file_response {
-        uint32 chunk = 1;
-        FileMetaData meta_data = 2;
-    }
+    repeated uint32 chunk = 1;
 }
 
 message FileMetaData {
     uint64 file_size = 1;
     string hash = 2;
+    string path = 3;
 }

@@ -7,33 +7,22 @@ pub struct GetDirectoryRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetDirectoryResponse {
-    #[prost(string, repeated, tag = "1")]
-    pub files: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "1")]
+    pub files: ::prost::alloc::vec::Vec<FileMetaData>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetFileRequest {
     #[prost(string, tag = "1")]
     pub path: ::prost::alloc::string::String,
-    #[prost(uint32, optional, tag = "2")]
-    pub from_bytes: ::core::option::Option<u32>,
+    #[prost(uint64, optional, tag = "2")]
+    pub from_bytes: ::core::option::Option<u64>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetFileResponse {
-    #[prost(oneof = "get_file_response::FileResponse", tags = "1, 2")]
-    pub file_response: ::core::option::Option<get_file_response::FileResponse>,
-}
-/// Nested message and enum types in `GetFileResponse`.
-pub mod get_file_response {
-    #[allow(clippy::derive_partial_eq_without_eq)]
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum FileResponse {
-        #[prost(uint32, tag = "1")]
-        Chunk(u32),
-        #[prost(message, tag = "2")]
-        MetaData(super::FileMetaData),
-    }
+    #[prost(uint32, repeated, tag = "1")]
+    pub chunk: ::prost::alloc::vec::Vec<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -42,6 +31,8 @@ pub struct FileMetaData {
     pub file_size: u64,
     #[prost(string, tag = "2")]
     pub hash: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub path: ::prost::alloc::string::String,
 }
 /// Generated client implementations.
 pub mod lan_doh_client {

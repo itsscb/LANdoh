@@ -108,24 +108,36 @@ impl LanDoh for Server {
 
         let path = PathBuf::from(r.path);
 
-        let mut root_path = path.clone();
-
-        while root_path.has_root() {
-            match root_path.parent() {
-                Some(p) => root_path = p.to_path_buf(),
-                None => {
-                    if !self
-                        .directories
-                        .contains(&root_path.to_str().unwrap().to_string())
-                    {
-                        return Err(Status::invalid_argument(format!(
-                            "invalid item: {:?}",
-                            &path
-                        )));
-                    }
-                }
+        let mut shared_dir = false;
+        for d in &self.directories {
+            if path.starts_with(d) {
+                shared_dir = true;
             }
         }
+
+        if !shared_dir {
+            return Err(Status::invalid_argument(format!(
+                "invalid item: {:?}",
+                &path
+            )));
+        }
+
+        // while root_path.has_root() {
+        //     match root_path.parent() {
+        //         Some(p) => root_path = p.to_path_buf(),
+        //         None => {
+        //             if !self
+        //                 .directories
+        //                 .contains(&root_path.to_str().unwrap().to_string())
+        //             {
+        //                 return Err(Status::invalid_argument(format!(
+        //                     "invalid item: {:?}",
+        //                     &path
+        //                 )));
+        //             }
+        //         }
+        //     }
+        // }
 
         if !path.exists() {
             return Err(Status::invalid_argument(format!(
@@ -153,7 +165,7 @@ impl LanDoh for Server {
         ) = mpsc::channel(128);
 
         tokio::spawn(async move {
-            let chunk_size: usize = 1024 * 4;
+            let chunk_size: usize = 1024 * 1024;
             let mut source_file: File;
             match File::open(path.clone()) {
                 Ok(f) => {
@@ -188,9 +200,7 @@ impl LanDoh for Server {
                     return Ok(GetFileResponse { chunk: vec![0, 0] });
                 }
 
-                let resp = GetFileResponse {
-                    chunk: buf.into_iter().map(|v| v as u32).collect(),
-                };
+                let resp = GetFileResponse { chunk: buf };
 
                 match tx.send(Ok(resp)).await {
                     Ok(_) => {

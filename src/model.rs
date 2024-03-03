@@ -29,6 +29,20 @@ impl PartialEq for Directory {
     }
 }
 
+#[test]
+fn test_contains_partial_path() {
+    let paths = vec!["testdir/sub/a", "testdir/sub/b", "testdir\\sub\\c"];
+    let dir = Directory {
+        name: "test".to_string(),
+        paths: paths.clone().into_iter().map(String::from).collect(),
+    };
+
+    assert!(!dir.contains_partial_path(None));
+    assert!(!dir.contains_partial_path(Some("/etc/passwd")));
+
+    assert!(dir.contains_partial_path(Some("testdir\\sub\\c\\blub")));
+}
+
 pub enum OSPATHS {
     APPDATA,
     PROGRAMDATA,

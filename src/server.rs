@@ -7,18 +7,22 @@ use std::{
     pin::Pin,
 };
 
+use walkdir::WalkDir;
+
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{transport::Server as tServer, Status};
 use tonic::{Request, Response};
 
-use walkdir::WalkDir;
+mod model {
+    include!("model.rs");
+}
 
-use pb_proto::lan_doh_server;
+use self::model::Directory;
 
 use self::pb_proto::{
-    lan_doh_server::LanDoh, FileMetaData, GetDirectoryRequest, GetDirectoryResponse,
-    GetFileRequest, GetFileResponse,
+    lan_doh_server, lan_doh_server::LanDoh, FileMetaData, GetDirectoryRequest,
+    GetDirectoryResponse, GetFileRequest, GetFileResponse,
 };
 
 mod pb_proto {
@@ -29,7 +33,7 @@ mod pb_proto {
 
 #[derive(Debug)]
 pub struct Server {
-    directories: Vec<String>,
+    directories: Vec<Directory>,
 }
 
 impl Server {
@@ -46,12 +50,24 @@ impl Server {
             .await?;
         Ok(())
     }
+
+    pub fn dir_is_shared(&self, name: &String) -> bool {
+        for d in &self.directories {
+            if d.name == *name {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl Default for Server {
     fn default() -> Self {
         Server {
-            directories: vec![".".to_string()],
+            directories: vec![Directory {
+                name: "root".to_string(),
+                paths: vec![".".to_string()],
+            }],
         }
     }
 }
@@ -66,7 +82,7 @@ impl LanDoh for Server {
     ) -> Result<Response<GetDirectoryResponse>, Status> {
         let r = request.into_inner();
         let path = PathBuf::from(r.name.clone());
-        if !self.directories.contains(&r.name) {
+        if !self.dir_is_shared(&r.name) {
             return Err(Status::invalid_argument(format!(
                 "invalid item: {}",
                 r.name
@@ -110,7 +126,7 @@ impl LanDoh for Server {
 
         let mut shared_dir = false;
         for d in &self.directories {
-            if path.starts_with(d) {
+            if d.contains_partial_path(path.to_str()) {
                 shared_dir = true;
             }
         }
@@ -121,23 +137,6 @@ impl LanDoh for Server {
                 &path
             )));
         }
-
-        // while root_path.has_root() {
-        //     match root_path.parent() {
-        //         Some(p) => root_path = p.to_path_buf(),
-        //         None => {
-        //             if !self
-        //                 .directories
-        //                 .contains(&root_path.to_str().unwrap().to_string())
-        //             {
-        //                 return Err(Status::invalid_argument(format!(
-        //                     "invalid item: {:?}",
-        //                     &path
-        //                 )));
-        //             }
-        //         }
-        //     }
-        // }
 
         if !path.exists() {
             return Err(Status::invalid_argument(format!(
@@ -228,7 +227,10 @@ impl LanDoh for Server {
 async fn main() -> Result<(), Box<dyn Error>> {
     let addr: SocketAddr = "0.0.0.0:9001".parse()?;
     let sv = Server {
-        directories: vec!["testdir".to_string()],
+        directories: vec![Directory {
+            name: "testdir".to_string(),
+            paths: vec!["testdir".to_string()],
+        }],
     };
 
     sv.serve(addr).await?;

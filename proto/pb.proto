@@ -21,7 +21,7 @@ message GetFileRequest {
 }
 
 message GetFileResponse {
-    repeated uint32 chunk = 1;
+    bytes chunk = 1;
 }
 
 message FileMetaData {

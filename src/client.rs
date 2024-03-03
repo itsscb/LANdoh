@@ -3,6 +3,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write,
     path::PathBuf,
+    sync::Arc,
 };
 
 use tokio_stream::StreamExt;
@@ -19,6 +20,30 @@ pub struct Client {
 impl Client {
     pub fn new(share_path: String) -> Client {
         Client { share_path }
+    }
+
+    pub async fn get_all_files(
+        self: Arc<Self>,
+        addr: String,
+        files: Vec<FileMetaData>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut handles = vec![];
+
+        let addr = Arc::new(addr);
+        let client = self;
+        for f in files {
+            let a = addr.clone();
+            let c = client.clone();
+            handles.push(tokio::spawn(async move {
+                let _ = c.get_file(a.to_string(), f).await;
+            }));
+        }
+
+        for h in handles {
+            let _ = h.await;
+        }
+
+        Ok(())
     }
 
     pub async fn get_file(&self, addr: String, file: FileMetaData) -> Result<(), Box<dyn Error>> {
@@ -107,15 +132,13 @@ impl Client {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let addr = "http://127.0.0.1:9001".to_string();
-    let c = Client::new("testdestination".to_string());
+    let c = Arc::new(Client::new("testdestination".to_string()));
     let files = c
         .get_directory("testdir".to_string(), addr.clone())
         .await
         .unwrap();
 
-    for f in files.clone() {
-        let _ = c.get_file(addr.clone(), f).await;
-    }
+    c.get_all_files(addr, files).await?;
 
     Ok(())
 }

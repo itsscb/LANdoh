@@ -13,6 +13,11 @@ mod pb_proto {
     include!("pb.rs");
 }
 
+use model::file_hash;
+mod model {
+    include!("model.rs");
+}
+
 pub struct Client {
     share_path: String,
 }
@@ -101,7 +106,14 @@ impl Client {
                 }
             }
         }
-        println!("file: {:?}, received: {:?}", path, written);
+
+        println!(
+            "file: {:?}, received: {:?}, valid: {:?}",
+            path,
+            written,
+            // file.hash == file_hash(&path).unwrap_or("none".to_string())
+            "unknown"
+        );
         Ok(())
     }
 

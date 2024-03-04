@@ -18,7 +18,7 @@ mod model {
     include!("model.rs");
 }
 
-use self::model::Directory;
+use self::model::{file_hash, Directory};
 
 use self::pb_proto::{
     lan_doh_server, lan_doh_server::LanDoh, FileMetaData, GetDirectoryRequest,
@@ -108,7 +108,8 @@ impl LanDoh for Server {
 
             files.push(FileMetaData {
                 file_size: m.len(),
-                hash: "a".to_string(),
+                hash: "none".to_string(),
+                // hash: file_hash(&PathBuf::from(e.path())).unwrap_or("none".to_string()),
                 path: String::from(e.path().to_str().unwrap()),
             });
         }

@@ -18,7 +18,7 @@ mod model {
     include!("model.rs");
 }
 
-use self::model::{file_hash, Directory};
+use self::model::{Directory, FileHasher, CHUNK_SIZE};
 
 use self::pb_proto::{
     lan_doh_server, lan_doh_server::LanDoh, FileMetaData, GetDirectoryRequest,
@@ -165,7 +165,6 @@ impl LanDoh for Server {
         ) = mpsc::channel(128);
 
         tokio::spawn(async move {
-            let chunk_size: usize = 1024 * 1024;
             let mut source_file: File;
             match File::open(path.clone()) {
                 Ok(f) => {
@@ -185,8 +184,8 @@ impl LanDoh for Server {
                 }
 
                 let chunk: usize;
-                if size - start_bytes >= chunk_size as u64 {
-                    chunk = chunk_size;
+                if size - start_bytes >= CHUNK_SIZE as u64 {
+                    chunk = CHUNK_SIZE;
                 } else {
                     chunk = (size - start_bytes) as usize;
                 }
@@ -204,7 +203,7 @@ impl LanDoh for Server {
 
                 match tx.send(Ok(resp)).await {
                     Ok(_) => {
-                        start_bytes += chunk_size as u64;
+                        start_bytes += CHUNK_SIZE as u64;
                     }
                     Err(err) => {
                         println!("ERROR: failed to update stream client: {:?}", err);

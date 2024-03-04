@@ -13,7 +13,7 @@ mod pb_proto {
     include!("pb.rs");
 }
 
-use model::file_hash;
+use model::FileHasher;
 mod model {
     include!("model.rs");
 }

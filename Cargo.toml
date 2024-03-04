@@ -12,6 +12,8 @@ tonic-reflection = "0.11.0"
 prost = "0.12.3"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "sync", "time"] }
 tokio-stream = "0.1"
+
+md-5 = "0.10.6"
 sha3 = "0.10.8"
 
 [build-dependencies]

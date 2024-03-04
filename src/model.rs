@@ -1,3 +1,11 @@
+use sha3::{Digest, Sha3_256};
+use std::{error::Error, fs::File, io, path::PathBuf};
+
+pub enum OSPATHS {
+    APPDATA,
+    PROGRAMDATA,
+}
+
 #[derive(Debug)]
 pub struct Directory {
     pub name: String,
@@ -43,7 +51,23 @@ fn test_contains_partial_path() {
     assert!(dir.contains_partial_path(Some("testdir\\sub\\c\\blub")));
 }
 
-pub enum OSPATHS {
-    APPDATA,
-    PROGRAMDATA,
+pub fn file_hash(path: PathBuf) -> Result<String, Box<dyn Error>> {
+    let mut hasher = Sha3_256::new();
+    let mut file = File::open(&path)?;
+
+    let _ = io::copy(&mut file, &mut hasher)?;
+    let hash = format!("{:X}", hasher.finalize());
+
+    println!("{:?}\t{:?}", path, hash);
+
+    Ok(hash)
+}
+
+#[test]
+fn test_file_hash() {
+    let hash = file_hash(PathBuf::from("testdir/file_root")).expect("could not generate hash");
+    assert_eq!(
+        hash,
+        "7C7DDAFABDB6D48A84CFCD7EA6AD2FDD7EA73C1E21A2AFCCE8E625B10E0D9A0C".to_string()
+    );
 }

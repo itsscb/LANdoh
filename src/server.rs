@@ -237,3 +237,72 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+use flate2::bufread::ZlibDecoder;
+use flate2::bufread::ZlibEncoder;
+use flate2::Compression;
+// use std::fs::File;
+use std::io::prelude::*;
+
+#[test]
+fn test_compression() {
+    let f = File::open("testdir/file_root").expect("failed to open file");
+    let size = f.metadata().expect("failed to read metadata").len();
+    let f = BufReader::new(f);
+
+    let mut z = ZlibEncoder::new(f, Compression::fast());
+    // let r = z.get_ref();
+    let mut start_bytes = 0;
+    let mut result: Vec<u8> = vec![];
+    let hasher = FileHasher::new();
+    // let mut buf = vec![0; CHUNK_SIZE];
+    loop {
+        if size <= start_bytes {
+            break;
+        }
+
+        let chunk: usize;
+        if size - start_bytes >= CHUNK_SIZE as u64 {
+            chunk = CHUNK_SIZE;
+        } else {
+            chunk = (size - start_bytes + 1) as usize;
+        }
+        let mut buf = vec![0; chunk];
+        // let mut hbuf = vec![0; chunk];
+
+        // r.read_exact(&mut hbuf)
+        //     .expect("failed to read bytes for hash");
+        z.read_exact(&mut buf)
+            .expect("failed to read bytes for compression");
+        // f.seek(SeekFrom::Start(start_bytes))
+        //     .expect("failed to set read start point");
+        // let mut reader = BufReader::new(&f);
+        // reader
+        //     .read_exact(&mut buf)
+        //     .expect("failed to read bytes for validation");
+
+        if buf.len() == 0 {
+            break;
+        }
+
+        // if hbuf.len() != 0 {
+        // }
+
+        result.append(&mut buf);
+        hasher.update(buf);
+
+        // buf.clear();
+        // buf.try_reserve(CHUNK_SIZE);
+
+        start_bytes += CHUNK_SIZE as u64;
+    }
+
+    let hash = hasher.finalize();
+
+    let mut z = ZlibDecoder::new(&result[..]);
+    let mut return_string = String::new();
+    z.read_to_string(&mut return_string);
+
+    println!("content: {:?}", return_string);
+    println!("hash: {:?}", hash);
+}

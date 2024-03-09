@@ -1,11 +1,7 @@
-use std::{
-    error::Error,
-    fs::File,
-    io::{BufReader, Read, Seek, SeekFrom},
-    net::SocketAddr,
-    path::PathBuf,
-    pin::Pin,
-};
+use std::{error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin};
+
+use data_encoding::HEXUPPER;
+use ring::digest::{Context, SHA256};
 
 use walkdir::WalkDir;
 
@@ -18,11 +14,11 @@ mod model {
     include!("model.rs");
 }
 
-use self::model::{Directory, FileHasher, CHUNK_SIZE};
+use self::model::{Directory, CHUNK_SIZE};
 
 use self::pb_proto::{
-    lan_doh_server, lan_doh_server::LanDoh, FileMetaData, GetDirectoryRequest,
-    GetDirectoryResponse, GetFileRequest, GetFileResponse,
+    get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, FileMetaData,
+    GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse,
 };
 
 mod pb_proto {
@@ -123,7 +119,7 @@ impl LanDoh for Server {
     ) -> Result<Response<Self::GetFileStream>, Status> {
         let r = request.into_inner();
 
-        let path = PathBuf::from(r.path);
+        let path = PathBuf::from(r.path.clone());
 
         let mut shared_dir = false;
         for d in &self.directories {
@@ -146,73 +142,61 @@ impl LanDoh for Server {
             )));
         }
 
-        let size = path.metadata()?.len();
-
-        let mut start_bytes: u64;
-
-        match r.from_bytes {
-            Some(start) => {
-                start_bytes = start;
-            }
-            None => {
-                start_bytes = 0;
-            }
-        }
-
         let (tx, rx): (
             Sender<Result<GetFileResponse, Status>>,
             Receiver<Result<GetFileResponse, Status>>,
         ) = mpsc::channel(128);
 
         tokio::spawn(async move {
-            let mut source_file: File;
-            match File::open(path.clone()) {
-                Ok(f) => {
-                    source_file = f;
-                }
-                Err(err) => {
-                    println!("ERROR: failed to update stream client: {:?}", err);
-                    let e = Err(Status::internal(format!("{}", err)));
-                    let _ = tx.send(e.clone()).await;
-                    return e;
-                }
-            };
+            send_file(r.path.as_str(), tx).await;
+            // let mut source_file: File;
+            // match File::open(path.clone()) {
+            //     Ok(f) => {
+            //         source_file = f;
+            //     }
+            //     Err(err) => {
+            //         println!("ERROR: failed to update stream client: {:?}", err);
+            //         let e = Err(Status::internal(format!("{}", err)));
+            //         let _ = tx.send(e.clone()).await;
+            //         return e;
+            //     }
+            // };
 
-            loop {
-                if size <= start_bytes {
-                    return Ok(GetFileResponse { chunk: vec![0, 0] });
-                }
+            // loop {
+            //     if size <= start_bytes {
+            //         return Ok(GetFileResponse { chunk: vec![0, 0] });
+            //     }
 
-                let chunk: usize;
-                if size - start_bytes >= CHUNK_SIZE as u64 {
-                    chunk = CHUNK_SIZE;
-                } else {
-                    chunk = (size - start_bytes) as usize;
-                }
-                let mut buf = vec![0; chunk];
+            //     let chunk: usize;
+            //     if size - start_bytes >= CHUNK_SIZE as u64 {
+            //         chunk = CHUNK_SIZE;
+            //     } else {
+            //         chunk = (size - start_bytes) as usize;
+            //     }
+            //     let mut buf = vec![0; chunk];
 
-                source_file.seek(SeekFrom::Start(start_bytes))?;
-                let mut reader = BufReader::new(&source_file);
-                reader.read_exact(&mut buf)?;
+            //     source_file.seek(SeekFrom::Start(start_bytes))?;
+            //     let mut reader = BufReader::new(&source_file);
+            //     reader.read_exact(&mut buf)?;
 
-                if buf.len() == 0 {
-                    return Ok(GetFileResponse { chunk: vec![0, 0] });
-                }
+            //     if buf.len() == 0 {
+            //         return Ok(GetFileResponse { chunk: vec![0, 0] });
+            //     }
 
-                let resp = GetFileResponse { chunk: buf };
+            //     let resp = GetFileResponse { chunk: buf };
 
-                match tx.send(Ok(resp)).await {
-                    Ok(_) => {
-                        start_bytes += CHUNK_SIZE as u64;
-                    }
-                    Err(err) => {
-                        println!("ERROR: failed to update stream client: {:?}", err);
-                        let e = Err(Status::internal(format!("{}", err)));
-                        let _ = tx.send(e.clone()).await;
-                        return e;
-                    }
-                }
-            }
+            //     match tx.send(Ok(resp)).await {
+            //         Ok(_) => {
+            //             start_bytes += CHUNK_SIZE as u64;
+            //         }
+            //         Err(err) => {
+            //             println!("ERROR: failed to update stream client: {:?}", err);
+            //             let e = Err(Status::internal(format!("{}", err)));
+            //             let _ = tx.send(e.clone()).await;
+            //             return e;
+            //         }
+            //     }
+            // }
         });
 
         let output_stream: ReceiverStream<Result<GetFileResponse, Status>> =
@@ -238,71 +222,60 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-use flate2::bufread::ZlibDecoder;
-use flate2::bufread::ZlibEncoder;
-use flate2::Compression;
-// use std::fs::File;
-use std::io::prelude::*;
-
-#[test]
-fn test_compression() {
-    let f = File::open("testdir/file_root").expect("failed to open file");
-    let size = f.metadata().expect("failed to read metadata").len();
-    let f = BufReader::new(f);
-
-    let mut z = ZlibEncoder::new(f, Compression::fast());
-    // let r = z.get_ref();
-    let mut start_bytes = 0;
-    let mut result: Vec<u8> = vec![];
-    let hasher = FileHasher::new();
-    // let mut buf = vec![0; CHUNK_SIZE];
-    loop {
-        if size <= start_bytes {
-            break;
+pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) {
+    let mut reader: File = match File::open(&path) {
+        Ok(f) => f,
+        Err(err) => {
+            let e = Err(Status::internal(format!(
+                "ERROR: failed to open file: {:?}",
+                err
+            )));
+            let _ = tx.send(e.clone()).await;
+            return;
         }
-
+    };
+    let mut context = Context::new(&SHA256);
+    let size = reader.metadata().unwrap().len();
+    let mut start_bytes = 0;
+    loop {
         let chunk: usize;
         if size - start_bytes >= CHUNK_SIZE as u64 {
             chunk = CHUNK_SIZE;
         } else {
-            chunk = (size - start_bytes + 1) as usize;
+            chunk = (size - start_bytes) as usize;
         }
-        let mut buf = vec![0; chunk];
-        // let mut hbuf = vec![0; chunk];
-
-        // r.read_exact(&mut hbuf)
-        //     .expect("failed to read bytes for hash");
-        z.read_exact(&mut buf)
-            .expect("failed to read bytes for compression");
-        // f.seek(SeekFrom::Start(start_bytes))
-        //     .expect("failed to set read start point");
-        // let mut reader = BufReader::new(&f);
-        // reader
-        //     .read_exact(&mut buf)
-        //     .expect("failed to read bytes for validation");
-
-        if buf.len() == 0 {
+        let mut buffer = vec![0; chunk];
+        let count = match reader.read(&mut buffer) {
+            Ok(r) => r,
+            Err(err) => {
+                let _ = tx
+                    .send(Err(Status::internal(format!(
+                        "failed to read file: {}",
+                        err
+                    ))))
+                    .await;
+                return;
+            }
+        };
+        if count == 0 {
             break;
         }
-
-        // if hbuf.len() != 0 {
-        // }
-
-        result.append(&mut buf);
-        hasher.update(buf);
-
-        // buf.clear();
-        // buf.try_reserve(CHUNK_SIZE);
-
-        start_bytes += CHUNK_SIZE as u64;
+        context.update(&buffer[..count]);
+        let _ = tx
+            .send(Ok(GetFileResponse {
+                file_response: Some(FileResponse::Chunk(buffer)),
+            }))
+            .await;
+        start_bytes += count as u64;
     }
-
-    let hash = hasher.finalize();
-
-    let mut z = ZlibDecoder::new(&result[..]);
-    let mut return_string = String::new();
-    z.read_to_string(&mut return_string);
-
-    println!("content: {:?}", return_string);
-    println!("hash: {:?}", hash);
+    let hash = HEXUPPER.encode(context.finish().as_ref());
+    let _ = tx
+        .send(Ok(GetFileResponse {
+            file_response: Some(FileResponse::Meta(FileMetaData {
+                file_size: size as u64,
+                path: path.to_string(),
+                hash: hash,
+            })),
+        }))
+        .await;
 }

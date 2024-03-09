@@ -15,14 +15,23 @@ pub struct GetDirectoryResponse {
 pub struct GetFileRequest {
     #[prost(string, tag = "1")]
     pub path: ::prost::alloc::string::String,
-    #[prost(uint64, optional, tag = "2")]
-    pub from_bytes: ::core::option::Option<u64>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetFileResponse {
-    #[prost(bytes = "vec", tag = "1")]
-    pub chunk: ::prost::alloc::vec::Vec<u8>,
+    #[prost(oneof = "get_file_response::FileResponse", tags = "1, 2")]
+    pub file_response: ::core::option::Option<get_file_response::FileResponse>,
+}
+/// Nested message and enum types in `GetFileResponse`.
+pub mod get_file_response {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum FileResponse {
+        #[prost(bytes, tag = "1")]
+        Chunk(::prost::alloc::vec::Vec<u8>),
+        #[prost(message, tag = "2")]
+        Meta(super::FileMetaData),
+    }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

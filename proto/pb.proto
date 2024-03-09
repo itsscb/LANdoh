@@ -17,11 +17,13 @@ message GetDirectoryResponse {
 
 message GetFileRequest {
     string path = 1;
-    optional uint64 from_bytes = 2;
 }
 
 message GetFileResponse {
-    bytes chunk = 1;
+    oneof file_response {
+        bytes chunk = 1;
+        FileMetaData meta = 2;
+    }
 }
 
 message FileMetaData {

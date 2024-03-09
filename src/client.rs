@@ -6,6 +6,8 @@ use std::{
     sync::Arc,
 };
 
+use data_encoding::HEXUPPER;
+use ring::digest::{Context, SHA256};
 use tokio_stream::StreamExt;
 
 use pb_proto::{lan_doh_client, FileMetaData, GetDirectoryRequest, GetFileRequest};
@@ -13,7 +15,7 @@ mod pb_proto {
     include!("pb.rs");
 }
 
-use model::FileHasher;
+use self::pb_proto::get_file_response::FileResponse;
 mod model {
     include!("model.rs");
 }
@@ -40,7 +42,12 @@ impl Client {
             let a = addr.clone();
             let c = client.clone();
             handles.push(tokio::spawn(async move {
-                let _ = c.get_file(a.to_string(), f).await;
+                match c.get_file(a.to_string(), f).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("{:?}", err);
+                    }
+                };
             }));
         }
 
@@ -57,28 +64,15 @@ impl Client {
 
         let tmp_path = file.path.clone();
 
-        let mut from_bytes: u64 = 0;
         let path = PathBuf::from(&self.share_path).join(&file.path);
 
         let mut dest_file = OpenOptions::new();
         if path.exists() {
-            dest_file.append(true);
-
-            let size = path.metadata()?.len();
-
-            if size < file.file_size {
-                from_bytes = size;
-            } else {
-                println!("already got '{}'", &file.path);
-                return Ok(());
-            }
+            return Err(format!("file already exists: {:?}", path).into());
         } else {
             dest_file.write(true);
         }
-        let message = GetFileRequest {
-            path: tmp_path,
-            from_bytes: Some(from_bytes),
-        };
+        let message = GetFileRequest { path: tmp_path };
 
         let request = tonic::Request::new(message);
 
@@ -91,15 +85,34 @@ impl Client {
         fs::create_dir_all(&parent)?;
 
         let mut dest_file = dest_file.create(true).open(&path)?;
-
+        let mut context = Context::new(&SHA256);
+        let mut fileresp: FileMetaData = FileMetaData {
+            path: "".to_string(),
+            file_size: 0,
+            hash: "".to_string(),
+        };
         while let Some(resp) = stream.next().await {
             match resp {
                 Ok(p) => {
-                    let c: Vec<u8> = p.chunk.into_iter().map(|i| i as u8).collect();
-                    for i in &c {
-                        written += *i as u64;
+                    let r = match p.file_response {
+                        Some(r) => r,
+                        None => {
+                            break;
+                        }
+                    };
+
+                    match r {
+                        FileResponse::Chunk(c) => {
+                            for i in &c {
+                                written += *i as u64;
+                            }
+                            context.update(&c.clone());
+                            dest_file.write_all(&c)?;
+                        }
+                        FileResponse::Meta(m) => {
+                            fileresp = m;
+                        }
                     }
-                    dest_file.write_all(&c)?;
                 }
                 Err(err) => {
                     println!("{:?}", err);
@@ -107,12 +120,13 @@ impl Client {
             }
         }
 
+        let hash = HEXUPPER.encode(context.finish().as_ref());
+
         println!(
             "file: {:?}, received: {:?}, valid: {:?}",
             path,
             written,
-            // file.hash == file_hash(&path).unwrap_or("none".to_string())
-            "unknown"
+            fileresp.hash == hash
         );
         Ok(())
     }

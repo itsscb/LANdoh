@@ -1,7 +1,7 @@
 use std::str;
 
 #[allow(dead_code, unused_imports)]
-use self::pb_proto::Directory;
+pub use self::pb_proto::Directory;
 
 mod pb_proto {
     include!("pb.rs");

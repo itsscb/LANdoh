@@ -131,6 +131,7 @@ impl Client {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn list_directories(&self, addr: String) -> Result<(), Box<dyn Error>> {
         let mut client = lan_doh_client::LanDohClient::connect(addr).await?;
         let response = client

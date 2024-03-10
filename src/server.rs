@@ -34,6 +34,18 @@ pub struct Server {
 }
 
 impl Server {
+    pub fn new(directories: Vec<String>) -> Self {
+        Server {
+            directories: directories
+                .iter()
+                .map(|d| Directory {
+                    name: d.to_string(),
+                    paths: vec![d.to_string()],
+                })
+                .collect(),
+        }
+    }
+
     pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(pb_proto::FILE_DESCRIPTOR_SET)
@@ -187,54 +199,6 @@ impl LanDoh for Server {
 
         tokio::spawn(async move {
             send_file(r.path.as_str(), tx).await;
-            // let mut source_file: File;
-            // match File::open(path.clone()) {
-            //     Ok(f) => {
-            //         source_file = f;
-            //     }
-            //     Err(err) => {
-            //         println!("ERROR: failed to update stream client: {:?}", err);
-            //         let e = Err(Status::internal(format!("{}", err)));
-            //         let _ = tx.send(e.clone()).await;
-            //         return e;
-            //     }
-            // };
-
-            // loop {
-            //     if size <= start_bytes {
-            //         return Ok(GetFileResponse { chunk: vec![0, 0] });
-            //     }
-
-            //     let chunk: usize;
-            //     if size - start_bytes >= CHUNK_SIZE as u64 {
-            //         chunk = CHUNK_SIZE;
-            //     } else {
-            //         chunk = (size - start_bytes) as usize;
-            //     }
-            //     let mut buf = vec![0; chunk];
-
-            //     source_file.seek(SeekFrom::Start(start_bytes))?;
-            //     let mut reader = BufReader::new(&source_file);
-            //     reader.read_exact(&mut buf)?;
-
-            //     if buf.len() == 0 {
-            //         return Ok(GetFileResponse { chunk: vec![0, 0] });
-            //     }
-
-            //     let resp = GetFileResponse { chunk: buf };
-
-            //     match tx.send(Ok(resp)).await {
-            //         Ok(_) => {
-            //             start_bytes += CHUNK_SIZE as u64;
-            //         }
-            //         Err(err) => {
-            //             println!("ERROR: failed to update stream client: {:?}", err);
-            //             let e = Err(Status::internal(format!("{}", err)));
-            //             let _ = tx.send(e.clone()).await;
-            //             return e;
-            //         }
-            //     }
-            // }
         });
 
         let output_stream: ReceiverStream<Result<GetFileResponse, Status>> =

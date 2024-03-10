@@ -15,7 +15,7 @@ mod pb_proto {
     include!("pb.rs");
 }
 
-use self::pb_proto::get_file_response::FileResponse;
+use self::pb_proto::{get_file_response::FileResponse, ListDirectoriesRequest};
 mod model {
     include!("model.rs");
 }
@@ -131,6 +131,21 @@ impl Client {
         Ok(())
     }
 
+    pub async fn list_directories(&self, addr: String) -> Result<(), Box<dyn Error>> {
+        let mut client = lan_doh_client::LanDohClient::connect(addr).await?;
+        let response = client
+            .list_directories(tonic::Request::new(ListDirectoriesRequest {}))
+            .await
+            .unwrap()
+            .into_inner();
+
+        for d in response.dirs {
+            println!("GOT DIR: {:?}", d);
+        }
+
+        Ok(())
+    }
+
     pub async fn get_directory(
         &self,
         name: String,
@@ -157,14 +172,55 @@ impl Client {
 #[allow(dead_code)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let addr = "http://127.0.0.1:9001".to_string();
-    let c = Arc::new(Client::new("testdestination".to_string()));
-    let files = c
-        .get_directory("testdir".to_string(), addr.clone())
-        .await
-        .unwrap();
+    use clap::{Parser, Subcommand};
 
-    c.get_all_files(addr, files).await?;
+    #[derive(Parser)]
+    struct Cli {
+        #[arg(short, long)]
+        address: Option<String>,
+        #[arg(short, long)]
+        destination: Option<String>,
+        #[command(subcommand)]
+        command: Option<Commands>,
+    }
+
+    #[derive(Subcommand)]
+    enum Commands {
+        GetDirectories {
+            #[arg(short, long)]
+            dir: String,
+        },
+        GetAllFiles {
+            #[arg(short, long)]
+            dir: String,
+        },
+    }
+
+    let cli = Cli::parse();
+
+    let addr = match cli.address {
+        Some(addr) => addr,
+        None => "http://127.0.0.1:9001".to_string(),
+    };
+    let destination = match cli.destination {
+        Some(destination) => destination,
+        None => "testdestination".to_string(),
+    };
+
+    let c = Arc::new(Client::new(destination));
+
+    match cli.command {
+        Some(Commands::GetDirectories { dir }) => {
+            println!("{:?}", c.get_directory(dir, addr.clone()).await)
+        }
+        Some(Commands::GetAllFiles { dir }) => {
+            let files = c.get_directory(dir, addr.clone()).await.unwrap();
+            c.get_all_files(addr, files).await.unwrap();
+        }
+        _ => {
+            return Ok(());
+        }
+    };
 
     Ok(())
 }

@@ -17,6 +17,8 @@ walkdir = "2"
 ring = "0.17.8"
 data-encoding = "2.5.0"
 
+clap = { version = "4.5.2", features = ["derive"]}
+
 [build-dependencies]
 tonic-build = "0.11.0"
 walkdir = "2"

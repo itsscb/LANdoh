@@ -5,6 +5,13 @@ package pb;
 service lan_doh {
     rpc GetDirectory (GetDirectoryRequest) returns (GetDirectoryResponse);
     rpc GetFile (GetFileRequest) returns (stream GetFileResponse);
+    rpc ListDirectories ( ListDirectoriesRequest ) returns ( ListDirectoriesResponse);
+}
+
+message ListDirectoriesRequest {}
+
+message ListDirectoriesResponse {
+    repeated Directory dirs = 1;
 }
 
 message GetDirectoryRequest {
@@ -30,4 +37,9 @@ message FileMetaData {
     uint64 file_size = 1;
     string hash = 2;
     string path = 3;
+}
+
+message Directory {
+    string name = 1;
+    repeated string paths = 2;
 }

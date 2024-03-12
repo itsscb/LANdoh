@@ -1,7 +1,7 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 use landoh::{
-    app::{App, Server},
+    app::{App, Directory, Server},
     client::Client,
 };
 
@@ -54,10 +54,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None => vec![".".to_string()],
             };
 
-            let app = App {
-                server: Server::new(dirs),
-            };
-            app.server.serve(addr).await?;
+            let (s, a) = Server::new(dirs);
+            let app = App { server: s };
+            let _ = thread::spawn(move || {
+                thread::sleep(Duration::from_secs(10));
+                a.lock().unwrap().push(Directory {
+                    name: String::from("testdestination"),
+                    paths: vec![String::from("testdestionation")],
+                });
+            });
+
+            app.server.serve(addr).await?
         }
         Some(Commands::GetAllFiles {
             source,

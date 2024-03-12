@@ -1,4 +1,7 @@
-use std::{error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin};
+use std::{
+    error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin, sync::Arc,
+    sync::Mutex,
+};
 
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
@@ -17,10 +20,12 @@ mod model {
 use self::model::{contains_partial_path, CHUNK_SIZE};
 
 use self::pb_proto::{
-    get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, Directory,
-    FileMetaData, GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse,
+    get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, FileMetaData,
+    GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse,
     ListDirectoriesRequest, ListDirectoriesResponse,
 };
+
+pub use self::pb_proto::Directory;
 
 mod pb_proto {
     include!("pb.rs");
@@ -30,20 +35,24 @@ mod pb_proto {
 
 #[derive(Debug)]
 pub struct Server {
-    directories: Vec<Directory>,
+    directories: Arc<Mutex<Vec<Directory>>>,
 }
 
 impl Server {
-    pub fn new(directories: Vec<String>) -> Self {
-        Server {
-            directories: directories
+    pub fn new(directories: Vec<String>) -> (Self, Arc<Mutex<Vec<Directory>>>) {
+        let dirs: Arc<Mutex<Vec<Directory>>> = Arc::new(Mutex::new(
+            directories
                 .iter()
                 .map(|d| Directory {
                     name: d.to_string(),
                     paths: vec![d.to_string()],
                 })
                 .collect(),
-        }
+        ));
+        let s = Server {
+            directories: Arc::clone(&dirs),
+        };
+        (s, dirs)
     }
 
     pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
@@ -61,7 +70,7 @@ impl Server {
     }
 
     pub fn dir_is_shared(&self, name: &String) -> bool {
-        for d in &self.directories {
+        for d in self.directories.lock().unwrap().iter() {
             if d.name == *name {
                 return true;
             }
@@ -69,8 +78,17 @@ impl Server {
         false
     }
 
-    pub fn get_dir(&self, name: &String) -> Option<&Directory> {
-        self.directories.iter().find(|d| &d.name == name)
+    pub fn get_dir(&self, name: &String) -> Option<Directory> {
+        match self
+            .directories
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|d| &d.name == name)
+        {
+            Some(d) => Some(d.clone()),
+            None => None,
+        }
     }
 
     pub fn add_shared_dir(
@@ -86,7 +104,7 @@ impl Server {
                 existing_paths.push(pa);
             }
         }
-        let _ = &self.directories.push(Directory {
+        let _ = &self.directories.lock().unwrap().push(Directory {
             name: name.to_string(),
             paths: existing_paths,
         });
@@ -94,17 +112,17 @@ impl Server {
     }
 
     pub fn remove_shared_dir(&mut self, name: String) {
-        self.directories.retain(|d| d.name != name);
+        self.directories.lock().unwrap().retain(|d| d.name != name);
     }
 }
 
 impl Default for Server {
     fn default() -> Self {
         Server {
-            directories: vec![Directory {
+            directories: Arc::new(Mutex::new(vec![Directory {
                 name: "root".to_string(),
                 paths: vec![".".to_string()],
-            }],
+            }])),
         }
     }
 }
@@ -117,7 +135,13 @@ impl LanDoh for Server {
         _request: Request<ListDirectoriesRequest>,
     ) -> Result<Response<ListDirectoriesResponse>, Status> {
         Ok(Response::new(ListDirectoriesResponse {
-            dirs: self.directories.iter().map(|d| d.clone()).collect(),
+            dirs: self
+                .directories
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|d| d.clone())
+                .collect(),
         }))
     }
 
@@ -172,7 +196,7 @@ impl LanDoh for Server {
         let path = PathBuf::from(r.path.clone());
 
         let mut shared_dir = false;
-        for d in &self.directories {
+        for d in self.directories.lock().unwrap().iter() {
             if contains_partial_path(path.to_str(), &d.paths) {
                 shared_dir = true;
             }
@@ -286,9 +310,11 @@ fn test_server_add_shared_dir() {
 
     assert!(s
         .directories
+        .lock()
+        .unwrap()
         .iter()
         .any(|i| i.name == "root".to_string() && i.paths.iter().any(|p| *p == ".".to_string())));
-    assert!(s.directories.iter().any(
+    assert!(s.directories.lock().unwrap().iter().any(
         |i| i.name == "test".to_string() && i.paths.iter().any(|p| *p == "testdir".to_string())
     ));
 
@@ -296,6 +322,8 @@ fn test_server_add_shared_dir() {
 
     let index = s
         .directories
+        .lock()
+        .unwrap()
         .iter()
         .position(|d| d.name == "test".to_string());
     assert_eq!(index, None);

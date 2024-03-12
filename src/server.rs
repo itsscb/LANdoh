@@ -55,6 +55,12 @@ impl Server {
         (s, dirs)
     }
 
+    pub fn new_with_data(directories: Arc<Mutex<Vec<Directory>>>) -> Self {
+        Server {
+            directories: directories,
+        }
+    }
+
     pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(pb_proto::FILE_DESCRIPTOR_SET)
@@ -116,16 +122,16 @@ impl Server {
     }
 }
 
-impl Default for Server {
-    fn default() -> Self {
-        Server {
-            directories: Arc::new(Mutex::new(vec![Directory {
-                name: "root".to_string(),
-                paths: vec![".".to_string()],
-            }])),
-        }
-    }
-}
+// impl Default for Server {
+//     fn default() -> Self {
+//         Server {
+//             directories: Arc::new(Mutex::new(vec![Directory {
+//                 name: "root".to_string(),
+//                 paths: vec![".".to_string()],
+//             }])),
+//         }
+//     }
+// }
 
 #[tonic::async_trait]
 impl LanDoh for Server {
@@ -232,18 +238,18 @@ impl LanDoh for Server {
     }
 }
 
-#[allow(dead_code)]
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let addr: SocketAddr = "0.0.0.0:9001".parse()?;
-    let mut sv = Server::default();
-    sv.add_shared_dir("test".to_string(), vec!["testdir".to_string()])
-        .unwrap();
+// #[allow(dead_code)]
+// #[tokio::main]
+// async fn main() -> Result<(), Box<dyn Error>> {
+//     let addr: SocketAddr = "0.0.0.0:9001".parse()?;
+//     let mut sv = Server::default();
+//     sv.add_shared_dir("test".to_string(), vec!["testdir".to_string()])
+//         .unwrap();
 
-    sv.serve(addr).await?;
+//     sv.serve(addr).await?;
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) {
     let mut reader: File = match File::open(&path) {
@@ -305,7 +311,7 @@ pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) 
 
 #[test]
 fn test_server_add_shared_dir() {
-    let mut s = Server::default();
+    let mut s = Server::new(vec![".".to_string()]);
     let _ = s.add_shared_dir("test".to_string(), vec!["testdir".to_string()]);
 
     assert!(s

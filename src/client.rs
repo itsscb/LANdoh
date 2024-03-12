@@ -170,58 +170,58 @@ impl Client {
     }
 }
 
-#[allow(dead_code)]
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    use clap::{Parser, Subcommand};
+// #[allow(dead_code)]
+// #[tokio::main]
+// async fn main() -> Result<(), Box<dyn Error>> {
+//     use clap::{Parser, Subcommand};
 
-    #[derive(Parser)]
-    struct Cli {
-        #[arg(short, long)]
-        address: Option<String>,
-        #[arg(short, long)]
-        destination: Option<String>,
-        #[command(subcommand)]
-        command: Option<Commands>,
-    }
+//     #[derive(Parser)]
+//     struct Cli {
+//         #[arg(short, long)]
+//         address: Option<String>,
+//         #[arg(short, long)]
+//         destination: Option<String>,
+//         #[command(subcommand)]
+//         command: Option<Commands>,
+//     }
 
-    #[derive(Subcommand)]
-    enum Commands {
-        GetDirectories {
-            #[arg(short, long)]
-            dir: String,
-        },
-        GetAllFiles {
-            #[arg(short, long)]
-            dir: String,
-        },
-    }
+//     #[derive(Subcommand)]
+//     enum Commands {
+//         GetDirectories {
+//             #[arg(short, long)]
+//             dir: String,
+//         },
+//         GetAllFiles {
+//             #[arg(short, long)]
+//             dir: String,
+//         },
+//     }
 
-    let cli = Cli::parse();
+//     let cli = Cli::parse();
 
-    let addr = match cli.address {
-        Some(addr) => addr,
-        None => "http://127.0.0.1:9001".to_string(),
-    };
-    let destination = match cli.destination {
-        Some(destination) => destination,
-        None => "testdestination".to_string(),
-    };
+//     let addr = match cli.address {
+//         Some(addr) => addr,
+//         None => "http://127.0.0.1:9001".to_string(),
+//     };
+//     let destination = match cli.destination {
+//         Some(destination) => destination,
+//         None => "testdestination".to_string(),
+//     };
 
-    let c = Arc::new(Client::new(destination));
+//     let c = Arc::new(Client::new(destination));
 
-    match cli.command {
-        Some(Commands::GetDirectories { dir }) => {
-            println!("{:?}", c.get_directory(dir, addr.clone()).await)
-        }
-        Some(Commands::GetAllFiles { dir }) => {
-            let files = c.get_directory(dir, addr.clone()).await.unwrap();
-            c.get_all_files(addr, files).await.unwrap();
-        }
-        _ => {
-            return Ok(());
-        }
-    };
+//     match cli.command {
+//         Some(Commands::GetDirectories { dir }) => {
+//             println!("{:?}", c.get_directory(dir, addr.clone()).await)
+//         }
+//         Some(Commands::GetAllFiles { dir }) => {
+//             let files = c.get_directory(dir, addr.clone()).await.unwrap();
+//             c.get_all_files(addr, files).await.unwrap();
+//         }
+//         _ => {
+//             return Ok(());
+//         }
+//     };
 
-    Ok(())
-}
+//     Ok(())
+// }

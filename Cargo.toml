@@ -19,14 +19,13 @@ data-encoding = "2.5.0"
 
 clap = { version = "4.5.2", features = ["derive"]}
 
+[dependencies.uuid]
+version = "1.7.0"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+]
+
 [build-dependencies]
 tonic-build = "0.11.0"
 walkdir = "2"
-
-[[bin]]
-name = "server"
-path = "src/server.rs"
-
-[[bin]]
-name = "client"
-path = "src/client.rs"

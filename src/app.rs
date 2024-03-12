@@ -7,6 +7,8 @@ use std::{
 
 use uuid::Uuid;
 
+use tokio::task::JoinSet;
+
 mod server {
     include!("server.rs");
 }
@@ -14,19 +16,64 @@ mod server {
 pub use self::server::{Directory, Server};
 
 pub struct App {
-    // pub server: Server,
     pub config: Config,
+    pub handles: JoinSet<()>,
 }
 
 impl App {
     pub fn new(config: Config) -> Self {
-        App { config: config }
+        App {
+            config: config,
+            handles: JoinSet::new(),
+        }
     }
 
-    pub async fn serve(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn serve(&mut self) {
         let a = Arc::clone(&self.config.shared_directories);
-        let server = Server::new_with_data(a);
-        server.serve(self.config.address).await
+        let server = Server::new(a);
+        let addr = self.config.address;
+        self.handles.spawn(async move {
+            let _ = server.serve(addr).await;
+        });
+    }
+
+    pub async fn join_all(&mut self) {
+        while let Some(_) = self.handles.join_next().await {}
+    }
+
+    #[allow(dead_code)]
+    pub fn add_shared_dir(
+        &mut self,
+        name: String,
+        paths: Vec<String>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut existing_paths = vec![];
+
+        for pa in paths {
+            let p = PathBuf::from(&pa);
+            if p.exists() && p.metadata()?.is_dir() {
+                existing_paths.push(pa);
+            }
+        }
+        let _ = &self
+            .config
+            .shared_directories
+            .lock()
+            .unwrap()
+            .push(Directory {
+                name: name.to_string(),
+                paths: existing_paths,
+            });
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn remove_shared_dir(&mut self, name: String) {
+        self.config
+            .shared_directories
+            .lock()
+            .unwrap()
+            .retain(|d| d.name != name);
     }
 }
 

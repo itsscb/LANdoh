@@ -39,23 +39,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(directories: Vec<String>) -> (Self, Arc<Mutex<Vec<Directory>>>) {
-        let dirs: Arc<Mutex<Vec<Directory>>> = Arc::new(Mutex::new(
-            directories
-                .iter()
-                .map(|d| Directory {
-                    name: d.to_string(),
-                    paths: vec![d.to_string()],
-                })
-                .collect(),
-        ));
-        let s = Server {
-            directories: Arc::clone(&dirs),
-        };
-        (s, dirs)
-    }
-
-    pub fn new_with_data(directories: Arc<Mutex<Vec<Directory>>>) -> Self {
+    pub fn new(directories: Arc<Mutex<Vec<Directory>>>) -> Self {
         Server {
             directories: directories,
         }
@@ -75,15 +59,6 @@ impl Server {
         Ok(())
     }
 
-    pub fn dir_is_shared(&self, name: &String) -> bool {
-        for d in self.directories.lock().unwrap().iter() {
-            if d.name == *name {
-                return true;
-            }
-        }
-        false
-    }
-
     pub fn get_dir(&self, name: &String) -> Option<Directory> {
         match self
             .directories
@@ -96,42 +71,7 @@ impl Server {
             None => None,
         }
     }
-
-    pub fn add_shared_dir(
-        &mut self,
-        name: String,
-        paths: Vec<String>,
-    ) -> Result<(), Box<dyn Error>> {
-        let mut existing_paths = vec![];
-
-        for pa in paths {
-            let p = PathBuf::from(&pa);
-            if p.exists() && p.metadata()?.is_dir() {
-                existing_paths.push(pa);
-            }
-        }
-        let _ = &self.directories.lock().unwrap().push(Directory {
-            name: name.to_string(),
-            paths: existing_paths,
-        });
-        Ok(())
-    }
-
-    pub fn remove_shared_dir(&mut self, name: String) {
-        self.directories.lock().unwrap().retain(|d| d.name != name);
-    }
 }
-
-// impl Default for Server {
-//     fn default() -> Self {
-//         Server {
-//             directories: Arc::new(Mutex::new(vec![Directory {
-//                 name: "root".to_string(),
-//                 paths: vec![".".to_string()],
-//             }])),
-//         }
-//     }
-// }
 
 #[tonic::async_trait]
 impl LanDoh for Server {
@@ -238,19 +178,6 @@ impl LanDoh for Server {
     }
 }
 
-// #[allow(dead_code)]
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn Error>> {
-//     let addr: SocketAddr = "0.0.0.0:9001".parse()?;
-//     let mut sv = Server::default();
-//     sv.add_shared_dir("test".to_string(), vec!["testdir".to_string()])
-//         .unwrap();
-
-//     sv.serve(addr).await?;
-
-//     Ok(())
-// }
-
 pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) {
     let mut reader: File = match File::open(&path) {
         Ok(f) => f,
@@ -307,30 +234,4 @@ pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) 
             })),
         }))
         .await;
-}
-
-#[test]
-fn test_server_add_shared_dir() {
-    let mut s = Server::new(vec![".".to_string()]);
-    let _ = s.add_shared_dir("test".to_string(), vec!["testdir".to_string()]);
-
-    assert!(s
-        .directories
-        .lock()
-        .unwrap()
-        .iter()
-        .any(|i| i.name == "root".to_string() && i.paths.iter().any(|p| *p == ".".to_string())));
-    assert!(s.directories.lock().unwrap().iter().any(
-        |i| i.name == "test".to_string() && i.paths.iter().any(|p| *p == "testdir".to_string())
-    ));
-
-    let _ = s.remove_shared_dir("test".to_string());
-
-    let index = s
-        .directories
-        .lock()
-        .unwrap()
-        .iter()
-        .position(|d| d.name == "test".to_string());
-    assert_eq!(index, None);
 }

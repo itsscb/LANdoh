@@ -1,11 +1,8 @@
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
-use landoh::{
-    // app::{App, Config, Directory, Server},
-    client::Client,
-};
+use landoh::client::Client;
 
-use self::app::{App, Config, Directory, Server};
+use self::app::{App, Config, Directory};
 
 mod app {
     include!("app.rs");
@@ -62,16 +59,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let config = Config::new(dirs, "testdestination".to_string(), addr, None).unwrap();
 
-            let app = App::new(config);
+            let mut app = App::new(config);
             let a = Arc::clone(&app.config.shared_directories);
-            let _ = thread::spawn(move || {
-                thread::sleep(Duration::from_secs(10));
+            let _ = tokio::spawn(async move {
+                thread::sleep(Duration::from_secs(2));
                 a.lock().unwrap().push(Directory {
                     name: String::from("testdestination"),
                     paths: vec![String::from("testdestionation")],
                 });
             });
-            app.serve().await?
+            app.serve().await;
+            app.join_all().await;
         }
         Some(Commands::GetAllFiles {
             source,

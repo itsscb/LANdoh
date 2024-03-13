@@ -52,6 +52,7 @@ pub struct FileMetaData {
     #[prost(string, tag = "3")]
     pub path: ::prost::alloc::string::String,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Directory {

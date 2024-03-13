@@ -1,10 +1,16 @@
 use std::{
+    env,
     error::Error,
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
     net::SocketAddr,
     path::PathBuf,
     sync::{Arc, Mutex},
+    thread,
+    time::Duration,
 };
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use tokio::task::JoinSet;
@@ -40,21 +46,74 @@ pub enum PayloadEnum<T> {
 
 pub type Sources = Arc<Mutex<Vec<Source>>>;
 
+fn save_config(config: &Config) -> Result<(), Box<dyn Error>> {
+    let path = config_path();
+
+    let mut f = OpenOptions::new();
+
+    fs::create_dir_all(path.parent().unwrap())?;
+
+    let mut file = f.write(true).create(true).open(&path)?;
+    let payload = toml::to_string_pretty(&config)?;
+    file.write_all(payload.as_bytes())?;
+
+    Ok(())
+}
+
+#[cfg(windows)]
+fn config_path() -> PathBuf {
+    let mut appdata = env::var("APPDATA").unwrap();
+
+    appdata.extend(["landoh", "config.ini"]);
+    PathBuf::from(appdata)
+}
+
+#[cfg(unix)]
+fn config_path() -> PathBuf {
+    let mut appdata = env::var("HOME").unwrap();
+
+    appdata.extend(["/", ".landoh_config"]);
+
+    PathBuf::from(appdata)
+}
+
 pub struct App {
     pub config: Config,
-    handles: JoinSet<()>,
-    sender: Sender,
-    sources: Sources,
+    pub handles: JoinSet<()>,
+    sender: Arc<Mutex<Sender>>,
+    pub sources: Sources,
 }
 
 impl App {
     pub fn new(config: Config) -> Self {
+        save_config(&config).unwrap();
         App {
             config: config,
             handles: JoinSet::new(),
-            sender: Sender::new().unwrap(),
+            sender: Arc::new(Mutex::new(Sender::new().unwrap())),
             sources: Arc::new(Mutex::new(vec![])),
         }
+    }
+
+    pub fn new_from_config() -> Result<Self, Box<dyn Error>> {
+        let path = config_path();
+        match path.exists() {
+            true => match path.is_file() {
+                true => {
+                    let mut f = File::open(path)?;
+                    let mut s: String = "".to_string();
+                    let _ = f.read_to_string(&mut s)?;
+                    let c: Config = toml::from_str::<Config>(&s)?;
+                    return Ok(Self::new(c));
+                }
+                false => {
+                    return Err("Config not found".into());
+                }
+            },
+            false => {
+                return Err("Config file not found".into());
+            }
+        };
     }
 
     pub fn listen(&mut self) {
@@ -65,8 +124,30 @@ impl App {
         });
     }
 
+    pub fn broadcast(&mut self) {
+        let id = self.config.id.clone();
+        let nickname = self.config.nickname.clone();
+        let s = Arc::clone(&self.sender);
+        let dirs = Arc::clone(&self.config.shared_directories);
+        self.handles.spawn(async move {
+            loop {
+                thread::sleep(Duration::from_secs(30));
+                let _ = s.lock().unwrap().send(Source::new(
+                    id.to_string(),
+                    nickname.to_string(),
+                    None,
+                    dirs.lock()
+                        .unwrap()
+                        .iter()
+                        .map(|d| d.name.clone())
+                        .collect(),
+                ));
+            }
+        });
+    }
+
     pub fn publish(&self, payload: Source) -> Result<(), Box<dyn Error>> {
-        self.sender.send(payload)
+        self.sender.lock().unwrap().send(payload)
     }
 
     pub async fn serve(&mut self) {
@@ -134,8 +215,9 @@ impl App {
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct Config {
-    pub id: Uuid,
+    pub id: String,
     pub nickname: String,
     pub shared_directories: Arc<Mutex<Vec<Directory>>>,
     pub destination: PathBuf,
@@ -149,7 +231,7 @@ impl Config {
         address: SocketAddr,
         nickname: Option<String>,
     ) -> Result<Self, Box<dyn Error>> {
-        let id = Uuid::new_v4();
+        let id = Uuid::new_v4().to_string();
         let dirs: Arc<Mutex<Vec<Directory>>> = Arc::new(Mutex::new(
             shared_directories
                 .iter()

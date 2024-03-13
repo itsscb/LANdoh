@@ -1,4 +1,7 @@
-use std::{error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin};
+use std::{
+    error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin, sync::Arc,
+    sync::Mutex,
+};
 
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
@@ -14,12 +17,15 @@ mod model {
     include!("model.rs");
 }
 
-use self::model::{Directory, CHUNK_SIZE};
+use self::model::{contains_partial_path, CHUNK_SIZE};
 
 use self::pb_proto::{
     get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, FileMetaData,
     GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse,
+    ListDirectoriesRequest, ListDirectoriesResponse,
 };
+
+pub use self::pb_proto::Directory;
 
 mod pb_proto {
     include!("pb.rs");
@@ -29,10 +35,16 @@ mod pb_proto {
 
 #[derive(Debug)]
 pub struct Server {
-    directories: Vec<Directory>,
+    directories: Arc<Mutex<Vec<Directory>>>,
 }
 
 impl Server {
+    pub fn new(directories: Arc<Mutex<Vec<Directory>>>) -> Self {
+        Server {
+            directories: directories,
+        }
+    }
+
     pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(pb_proto::FILE_DESCRIPTOR_SET)
@@ -47,23 +59,16 @@ impl Server {
         Ok(())
     }
 
-    pub fn dir_is_shared(&self, name: &String) -> bool {
-        for d in &self.directories {
-            if d.name == *name {
-                return true;
-            }
-        }
-        false
-    }
-}
-
-impl Default for Server {
-    fn default() -> Self {
-        Server {
-            directories: vec![Directory {
-                name: "root".to_string(),
-                paths: vec![".".to_string()],
-            }],
+    pub fn get_dir(&self, name: &String) -> Option<Directory> {
+        match self
+            .directories
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|d| &d.name == name)
+        {
+            Some(d) => Some(d.clone()),
+            None => None,
         }
     }
 }
@@ -71,44 +76,59 @@ impl Default for Server {
 #[tonic::async_trait]
 impl LanDoh for Server {
     type GetFileStream = Pin<Box<dyn Stream<Item = Result<GetFileResponse, Status>> + Send>>;
+    async fn list_directories(
+        &self,
+        _request: Request<ListDirectoriesRequest>,
+    ) -> Result<Response<ListDirectoriesResponse>, Status> {
+        Ok(Response::new(ListDirectoriesResponse {
+            dirs: self
+                .directories
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|d| d.clone())
+                .collect(),
+        }))
+    }
 
     async fn get_directory(
         &self,
         request: Request<GetDirectoryRequest>,
     ) -> Result<Response<GetDirectoryResponse>, Status> {
         let r = request.into_inner();
-        let path = PathBuf::from(r.name.clone());
-        if !self.dir_is_shared(&r.name) {
+
+        let dir_res = self.get_dir(&r.name);
+
+        if dir_res == None {
             return Err(Status::invalid_argument(format!(
                 "invalid item: {}",
                 r.name
             )));
         }
 
-        if !&path.exists() {
-            return Err(Status::not_found(format!(
-                "item is marked for sharing but could not be found: {}",
-                r.name
-            )));
-        }
+        let dir = dir_res.unwrap();
 
         let mut files: Vec<FileMetaData> = vec![];
-
-        for f in WalkDir::new(&path) {
-            let e = f.unwrap();
-
-            let m = e.metadata().unwrap();
-            if m.is_dir() {
-                continue;
+        dir.paths.iter().map(|p| PathBuf::from(p)).for_each(|path| {
+            if !&path.exists() {
+                return;
             }
 
-            files.push(FileMetaData {
-                file_size: m.len(),
-                hash: "none".to_string(),
-                // hash: file_hash(&PathBuf::from(e.path())).unwrap_or("none".to_string()),
-                path: String::from(e.path().to_str().unwrap()),
-            });
-        }
+            for f in WalkDir::new(&path) {
+                let e = f.unwrap();
+
+                let m = e.metadata().unwrap();
+                if m.is_dir() {
+                    continue;
+                }
+
+                files.push(FileMetaData {
+                    file_size: m.len(),
+                    hash: "none".to_string(),
+                    path: String::from(e.path().to_str().unwrap()),
+                });
+            }
+        });
 
         Ok(Response::new(GetDirectoryResponse { files: files }))
     }
@@ -122,8 +142,8 @@ impl LanDoh for Server {
         let path = PathBuf::from(r.path.clone());
 
         let mut shared_dir = false;
-        for d in &self.directories {
-            if d.contains_partial_path(path.to_str()) {
+        for d in self.directories.lock().unwrap().iter() {
+            if contains_partial_path(path.to_str(), &d.paths) {
                 shared_dir = true;
             }
         }
@@ -149,54 +169,6 @@ impl LanDoh for Server {
 
         tokio::spawn(async move {
             send_file(r.path.as_str(), tx).await;
-            // let mut source_file: File;
-            // match File::open(path.clone()) {
-            //     Ok(f) => {
-            //         source_file = f;
-            //     }
-            //     Err(err) => {
-            //         println!("ERROR: failed to update stream client: {:?}", err);
-            //         let e = Err(Status::internal(format!("{}", err)));
-            //         let _ = tx.send(e.clone()).await;
-            //         return e;
-            //     }
-            // };
-
-            // loop {
-            //     if size <= start_bytes {
-            //         return Ok(GetFileResponse { chunk: vec![0, 0] });
-            //     }
-
-            //     let chunk: usize;
-            //     if size - start_bytes >= CHUNK_SIZE as u64 {
-            //         chunk = CHUNK_SIZE;
-            //     } else {
-            //         chunk = (size - start_bytes) as usize;
-            //     }
-            //     let mut buf = vec![0; chunk];
-
-            //     source_file.seek(SeekFrom::Start(start_bytes))?;
-            //     let mut reader = BufReader::new(&source_file);
-            //     reader.read_exact(&mut buf)?;
-
-            //     if buf.len() == 0 {
-            //         return Ok(GetFileResponse { chunk: vec![0, 0] });
-            //     }
-
-            //     let resp = GetFileResponse { chunk: buf };
-
-            //     match tx.send(Ok(resp)).await {
-            //         Ok(_) => {
-            //             start_bytes += CHUNK_SIZE as u64;
-            //         }
-            //         Err(err) => {
-            //             println!("ERROR: failed to update stream client: {:?}", err);
-            //             let e = Err(Status::internal(format!("{}", err)));
-            //             let _ = tx.send(e.clone()).await;
-            //             return e;
-            //         }
-            //     }
-            // }
         });
 
         let output_stream: ReceiverStream<Result<GetFileResponse, Status>> =
@@ -204,22 +176,6 @@ impl LanDoh for Server {
 
         Ok(Response::new(Box::pin(output_stream) as Self::GetFileStream))
     }
-}
-
-#[allow(dead_code)]
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let addr: SocketAddr = "0.0.0.0:9001".parse()?;
-    let sv = Server {
-        directories: vec![Directory {
-            name: "testdir".to_string(),
-            paths: vec!["testdir".to_string()],
-        }],
-    };
-
-    sv.serve(addr).await?;
-
-    Ok(())
 }
 
 pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) {

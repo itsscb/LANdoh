@@ -1,5 +1,12 @@
 use std::str;
 
+#[allow(dead_code, unused_imports)]
+pub use self::pb_proto::Directory;
+
+mod pb_proto {
+    include!("pb.rs");
+}
+
 #[allow(dead_code)]
 pub enum OSPATHS {
     APPDATA,
@@ -9,36 +16,19 @@ pub enum OSPATHS {
 #[allow(dead_code)]
 pub const CHUNK_SIZE: usize = 4069;
 
-#[derive(Debug)]
-pub struct Directory {
-    pub name: String,
-    pub paths: Vec<String>,
-}
-
-impl Directory {
-    #[allow(dead_code)]
-    pub fn contains_partial_path(&self, path: Option<&str>) -> bool {
-        match path {
-            None => return false,
-            Some(path) => {
-                for p in &self.paths {
-                    if path.starts_with(p) {
-                        return true;
-                    }
+#[allow(dead_code)]
+pub fn contains_partial_path(path: Option<&str>, paths: &Vec<String>) -> bool {
+    match path {
+        None => return false,
+        Some(path) => {
+            for p in paths {
+                if path.starts_with(p) {
+                    return true;
                 }
             }
-        };
-        false
-    }
-}
-
-impl PartialEq for Directory {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-    }
-    fn ne(&self, other: &Self) -> bool {
-        self.name != other.name
-    }
+        }
+    };
+    false
 }
 
 #[test]
@@ -49,8 +39,11 @@ fn test_contains_partial_path() {
         paths: paths.clone().into_iter().map(String::from).collect(),
     };
 
-    assert!(!dir.contains_partial_path(None));
-    assert!(!dir.contains_partial_path(Some("/etc/passwd")));
+    assert!(!contains_partial_path(None, &dir.paths));
+    assert!(!contains_partial_path(Some("/etc/passwd"), &dir.paths));
 
-    assert!(dir.contains_partial_path(Some("testdir\\sub\\c\\blub")));
+    assert!(contains_partial_path(
+        Some("testdir\\sub\\c\\blub"),
+        &dir.paths
+    ));
 }

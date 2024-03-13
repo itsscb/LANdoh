@@ -1,5 +1,14 @@
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListDirectoriesRequest {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListDirectoriesResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub dirs: ::prost::alloc::vec::Vec<Directory>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetDirectoryRequest {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
@@ -42,6 +51,14 @@ pub struct FileMetaData {
     pub hash: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
     pub path: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Directory {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag = "2")]
+    pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Generated client implementations.
 pub mod lan_doh_client {
@@ -172,6 +189,31 @@ pub mod lan_doh_client {
             req.extensions_mut().insert(GrpcMethod::new("pb.lan_doh", "GetFile"));
             self.inner.server_streaming(req, path, codec).await
         }
+        pub async fn list_directories(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListDirectoriesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListDirectoriesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/pb.lan_doh/ListDirectories",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pb.lan_doh", "ListDirectories"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -198,6 +240,13 @@ pub mod lan_doh_server {
             &self,
             request: tonic::Request<super::GetFileRequest>,
         ) -> std::result::Result<tonic::Response<Self::GetFileStream>, tonic::Status>;
+        async fn list_directories(
+            &self,
+            request: tonic::Request<super::ListDirectoriesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListDirectoriesResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct LanDohServer<T: LanDoh> {
@@ -367,6 +416,52 @@ pub mod lan_doh_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/pb.lan_doh/ListDirectories" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListDirectoriesSvc<T: LanDoh>(pub Arc<T>);
+                    impl<
+                        T: LanDoh,
+                    > tonic::server::UnaryService<super::ListDirectoriesRequest>
+                    for ListDirectoriesSvc<T> {
+                        type Response = super::ListDirectoriesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListDirectoriesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as LanDoh>::list_directories(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = ListDirectoriesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

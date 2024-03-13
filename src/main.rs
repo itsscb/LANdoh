@@ -68,7 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     paths: vec![String::from("testdestionation")],
                 });
             });
+            let _ = app.add_shared_dir("src".to_string(), vec!["src".to_string()]);
+            app.listen();
+            println!("listening");
             app.serve().await;
+            println!("serving");
             app.join_all().await;
         }
         Some(Commands::GetAllFiles {

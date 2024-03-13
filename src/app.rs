@@ -13,11 +13,38 @@ mod server {
     include!("server.rs");
 }
 
+// // use self::source::Source;
+
+mod multicast {
+    include!("multicast.rs");
+}
+
+use self::multicast::{
+    receiver::{self, Source},
+    Sender,
+};
+
 pub use self::server::{Directory, Server};
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Payload<T> {
+    id: String,
+    data: PayloadEnum<T>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum PayloadEnum<T> {
+    One(T),
+    Many(T),
+}
+
+pub type Sources = Arc<Mutex<Vec<Source>>>;
 
 pub struct App {
     pub config: Config,
-    pub handles: JoinSet<()>,
+    handles: JoinSet<()>,
+    sender: Sender,
+    sources: Sources,
 }
 
 impl App {
@@ -25,7 +52,21 @@ impl App {
         App {
             config: config,
             handles: JoinSet::new(),
+            sender: Sender::new().unwrap(),
+            sources: Arc::new(Mutex::new(vec![])),
         }
+    }
+
+    pub fn listen(&mut self) {
+        let a = Arc::clone(&self.sources);
+        let id = self.config.id.to_string();
+        self.handles.spawn(async move {
+            receiver::listen(id, a).unwrap();
+        });
+    }
+
+    pub fn publish(&self, payload: Source) -> Result<(), Box<dyn Error>> {
+        self.sender.send(payload)
     }
 
     pub async fn serve(&mut self) {
@@ -55,15 +96,31 @@ impl App {
                 existing_paths.push(pa);
             }
         }
+
+        let dir = Directory {
+            name: name.to_string(),
+            paths: existing_paths,
+        };
         let _ = &self
             .config
             .shared_directories
             .lock()
             .unwrap()
-            .push(Directory {
-                name: name.to_string(),
-                paths: existing_paths,
-            });
+            .push(dir.clone());
+
+        self.publish(Source::new(
+            self.config.id.to_string(),
+            self.config.nickname.clone(),
+            None,
+            self.config
+                .shared_directories
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|i| i.name.clone())
+                .collect(),
+        ))?;
+
         Ok(())
     }
 

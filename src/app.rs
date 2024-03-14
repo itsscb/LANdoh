@@ -176,9 +176,10 @@ impl App {
         let _ = env_logger::try_init();
 
         info!(
-            "serving backend on {} with ID {}",
+            "serving backend on {} as {}\nID: {}",
             &addr.ip().to_string(),
-            &self.config.id
+            &self.config.nickname,
+            &self.config.id,
         );
         self.handles.spawn(async move {
             let _ = server.serve(addr).await;

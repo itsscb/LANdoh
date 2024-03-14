@@ -13,22 +13,19 @@ use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{transport::Server as tServer, Status};
 use tonic::{Request, Response};
 
-mod model {
-    include!("model.rs");
-}
+use crate::model::{contains_partial_path, CHUNK_SIZE};
 
-use self::model::{contains_partial_path, CHUNK_SIZE};
-
-use self::pb_proto::{
+use crate::pb::{
     get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, FileMetaData,
     GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse,
     ListDirectoriesRequest, ListDirectoriesResponse,
 };
 
-pub use self::pb_proto::Directory;
+pub use crate::pb::Directory;
 
 mod pb_proto {
     include!("pb.rs");
+    #[allow(dead_code)]
     pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
         tonic::include_file_descriptor_set!("pb_descriptor");
 }
@@ -39,12 +36,14 @@ pub struct Server {
 }
 
 impl Server {
+    #[allow(dead_code)]
     pub fn new(directories: Arc<Mutex<Vec<Directory>>>) -> Self {
         Server {
             directories: directories,
         }
     }
 
+    #[allow(dead_code)]
     pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(pb_proto::FILE_DESCRIPTOR_SET)

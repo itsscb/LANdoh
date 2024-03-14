@@ -15,6 +15,7 @@ pub struct Sender {
     addr: SocketAddr,
 }
 impl Sender {
+    #[allow(dead_code)]
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let ipv4: IpAddr = Ipv4Addr::new(224, 0, 0, 123).into();
         let addr = SocketAddr::new(ipv4, PORT);
@@ -35,6 +36,8 @@ impl Sender {
             addr,
         })
     }
+
+    #[allow(dead_code)]
     pub fn send<T: Serialize>(&self, data: T) -> Result<(), Box<dyn Error>> {
         let payload = serde_json::to_string(&data)?;
 
@@ -56,12 +59,9 @@ pub mod receiver {
         time::Duration,
     };
 
-    mod source {
-        include!("source.rs");
-    }
+    pub use crate::source::Source;
 
-    pub use self::source::Source;
-
+    #[allow(dead_code)]
     pub fn listen(id: String, data: Arc<Mutex<Vec<Source>>>) -> Result<(), Box<dyn Error>> {
         let ipv4: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 123).into();
         let addr = SocketAddr::new(ipv4.clone().into(), super::PORT);
@@ -112,17 +112,16 @@ pub mod receiver {
     }
 
     #[cfg(windows)]
+    #[allow(dead_code)]
+
     fn bind_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
-        let addr = match *addr {
-            SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
-            SocketAddr::V6(addr) => {
-                SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
-            }
-        };
+        let addr = SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port());
         socket.bind(&socket2::SockAddr::from(addr))
     }
 
     #[cfg(unix)]
+    #[allow(dead_code)]
+
     fn bind_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
         socket.bind(&socket2::SockAddr::from(*addr))
     }

@@ -15,22 +15,12 @@ use uuid::Uuid;
 
 use tokio::task::JoinSet;
 
-mod server {
-    include!("server.rs");
-}
-
-// // use self::source::Source;
-
-mod multicast {
-    include!("multicast.rs");
-}
-
-use self::multicast::{
+use crate::multicast::{
     receiver::{self, Source},
     Sender,
 };
 
-pub use self::server::{Directory, Server};
+pub use crate::server::{Directory, Server};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Payload<T> {

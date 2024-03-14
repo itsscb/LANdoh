@@ -2,11 +2,7 @@ use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 use landoh::client::Client;
 
-use self::app::{App, Config, Directory};
-
-mod app {
-    include!("app.rs");
-}
+use landoh::app::{App, Config, Directory};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

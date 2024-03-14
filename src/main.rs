@@ -2,7 +2,9 @@ use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 use landoh::client::Client;
 
-use landoh::app::{App, Config, Directory};
+use landoh::app::{App, Config};
+
+use log::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,27 +61,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(a) => a,
                 Err(_) => App::new(config),
             };
-            let a = Arc::clone(&app.config.shared_directories);
-            let _ = tokio::spawn(async move {
-                thread::sleep(Duration::from_secs(2));
-                a.lock().unwrap().push(Directory {
-                    name: String::from("testdestination"),
-                    paths: vec![String::from("testdestionation")],
-                });
-            });
+
             let _ = app.add_shared_dir("src".to_string(), vec!["src".to_string()]);
             app.listen();
-            println!("listening");
             let s = Arc::clone(&app.sources);
             app.handles.spawn(async move {
                 loop {
                     thread::sleep(Duration::from_secs(5));
-                    println!("{:?}", s.lock().unwrap());
+                    info!("client dirs: {:?}", s.lock().unwrap());
                 }
             });
             app.broadcast();
             app.serve().await;
-            println!("serving");
             app.join_all().await;
         }
         Some(Commands::GetAllFiles {

@@ -25,6 +25,9 @@ toml = "0.8.11"
 
 clap = { version = "4.5.2", features = ["derive"]}
 
+log = "0.4.21"
+env_logger = "0.11.3"
+
 [dependencies.uuid]
 version = "1.7.0"
 features = [

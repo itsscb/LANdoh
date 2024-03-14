@@ -62,7 +62,7 @@ pub mod receiver {
     pub use crate::source::Source;
 
     #[allow(dead_code)]
-    pub fn listen(id: String, data: Arc<Mutex<Vec<Source>>>) -> Result<(), Box<dyn Error>> {
+    pub fn listen(id: String, sources: Arc<Mutex<Vec<Source>>>) -> Result<(), Box<dyn Error>> {
         let ipv4: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 123).into();
         let addr = SocketAddr::new(ipv4.clone().into(), super::PORT);
 
@@ -83,8 +83,11 @@ pub mod receiver {
                     let payload_raw = serde_json::from_slice::<Source>(d);
                     match payload_raw {
                         Ok(p) => {
-                            println!("{}:{:?}", remote_addr, p);
-                            let mut dirs = data.lock().unwrap();
+                            if p.id == id {
+                                continue;
+                            }
+
+                            let mut dirs = sources.lock().unwrap();
                             match dirs.iter_mut().find(|ref i| i.id == p.id) {
                                 Some(ref mut i) => {
                                     i.nickname = p.nickname;

@@ -1,6 +1,7 @@
 use std::{
     env,
     error::Error,
+    fmt,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     net::SocketAddr,
@@ -9,6 +10,8 @@ use std::{
     thread,
     time::Duration,
 };
+
+use log::info;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -67,6 +70,25 @@ fn config_path() -> PathBuf {
     PathBuf::from(appdata)
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+enum LogLevel {
+    INFO,
+    DEBUG,
+    WARN,
+    ERROR,
+}
+
+impl fmt::Display for LogLevel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+fn set_loglevel(lvl: LogLevel) {
+    env::set_var("RUST_LOG", lvl.to_string());
+}
+
 pub struct App {
     pub config: Config,
     pub handles: JoinSet<()>,
@@ -76,6 +98,9 @@ pub struct App {
 
 impl App {
     pub fn new(config: Config) -> Self {
+        set_loglevel(LogLevel::INFO);
+        let _ = env_logger::try_init();
+
         save_config(&config).unwrap();
         App {
             config: config,
@@ -86,6 +111,10 @@ impl App {
     }
 
     pub fn new_from_config() -> Result<Self, Box<dyn Error>> {
+        set_loglevel(LogLevel::INFO);
+
+        let _ = env_logger::try_init();
+
         let path = config_path();
         match path.exists() {
             true => match path.is_file() {
@@ -107,10 +136,10 @@ impl App {
     }
 
     pub fn listen(&mut self) {
-        let a = Arc::clone(&self.sources);
+        let s = Arc::clone(&self.sources);
         let id = self.config.id.to_string();
         self.handles.spawn(async move {
-            receiver::listen(id, a).unwrap();
+            receiver::listen(id, s).unwrap();
         });
     }
 
@@ -144,6 +173,13 @@ impl App {
         let a = Arc::clone(&self.config.shared_directories);
         let server = Server::new(a);
         let addr = self.config.address;
+        let _ = env_logger::try_init();
+
+        info!(
+            "serving backend on {} with ID {}",
+            &addr.ip().to_string(),
+            &self.config.id
+        );
         self.handles.spawn(async move {
             let _ = server.serve(addr).await;
         });

@@ -1,11 +1,7 @@
 use std::str;
 
 #[allow(dead_code, unused_imports)]
-pub use self::pb_proto::Directory;
-
-mod pb_proto {
-    include!("pb.rs");
-}
+use crate::pb::Directory;
 
 #[allow(dead_code)]
 pub enum OSPATHS {

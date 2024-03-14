@@ -10,15 +10,10 @@ use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
 use tokio_stream::StreamExt;
 
-use pb_proto::{lan_doh_client, FileMetaData, GetDirectoryRequest, GetFileRequest};
-mod pb_proto {
-    include!("pb.rs");
-}
-
-use self::pb_proto::{get_file_response::FileResponse, ListDirectoriesRequest};
-mod model {
-    include!("model.rs");
-}
+use super::pb::{
+    get_file_response::FileResponse, lan_doh_client, FileMetaData, GetDirectoryRequest,
+    GetFileRequest, ListDirectoriesRequest,
+};
 
 pub struct Client {
     share_path: String,

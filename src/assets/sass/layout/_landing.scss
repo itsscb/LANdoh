@@ -193,7 +193,7 @@
 			}
 		}
 
-		&#meet-landoh {
+		&#meet-mirage {
 			background-color: #eceff4;
 			padding: 24px 10% 170px;
 			position: relative;
@@ -236,7 +236,7 @@
 				}
 			}
 
-			.buy-landoh-promo-wrapper {
+			.buy-mirage-promo-wrapper {
 				display: flex;
 				justify-content: center;
 				align-items: center;
@@ -247,7 +247,7 @@
 				width: 100%;
 				z-index: 998;
 
-				.buy-landoh-promo {
+				.buy-mirage-promo {
 					@include border-radius(4px);
 					background-color: #2e3440;
 					display: flex;
@@ -713,11 +713,11 @@
 		}
 
 		.section {
-			&#meet-landoh {
+			&#meet-mirage {
 				padding: 24px 10% 260px;
 
-				.buy-landoh-promo-wrapper {
-					.buy-landoh-promo {
+				.buy-mirage-promo-wrapper {
+					.buy-mirage-promo {
 						.promo-content {
 							width: 100%
 						}

@@ -55,14 +55,18 @@ pub mod receiver {
         error::Error,
         io,
         net::{Ipv4Addr, SocketAddr, UdpSocket},
-        sync::{Arc, Mutex},
+        sync::{mpsc::Sender, Arc, Mutex},
         time::Duration,
     };
 
     pub use crate::source::Source;
 
     #[allow(dead_code)]
-    pub fn listen(id: String, sources: Arc<Mutex<Vec<Source>>>) -> Result<(), Box<dyn Error>> {
+    pub fn listen(
+        id: String,
+        sources: Arc<Mutex<Vec<Source>>>,
+        sender: Option<Sender<Vec<Source>>>,
+    ) -> Result<(), Box<dyn Error>> {
         let ipv4: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 123).into();
         let addr = SocketAddr::new(ipv4.clone().into(), super::PORT);
 
@@ -100,6 +104,11 @@ pub mod receiver {
                                     Some(remote_addr.ip().to_string()),
                                     p.shared_directories,
                                 )),
+                            };
+
+                            let _ = match sender {
+                                Some(ref s) => s.send(dirs.iter().map(|d| d.clone()).collect()),
+                                None => Ok(()),
                             };
                         }
                         Err(err) => {

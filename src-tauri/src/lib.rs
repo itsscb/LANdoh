@@ -1,7 +1,7 @@
 pub mod app;
 pub mod client;
 mod model;
-mod multicast;
+pub mod multicast;
 mod pb;
 mod server;
-mod source;
+pub mod source;

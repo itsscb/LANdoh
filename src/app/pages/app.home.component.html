@@ -1,0 +1,48 @@
+<div class="login-body" [ngClass]="{'layout-dark': dark, 'layout-light': !dark}">
+
+    <div class="login-content">
+
+        <div class="card">
+            <p [innerHtml]="checked"></p>
+            <!-- <button (click)="test_emit()">test_emit</button> -->
+            <button (click)="listen()" [disabled]="listening">listen</button>
+            <p-table [value]="sources" sortField="name" sortMode="single" dataKey="name" rowGroupMode="subheader"
+                groupRowsBy="name" [tableStyle]="{'min-width': '40rem'}">
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th>Name</th>
+                        <th>Nickname</th>
+                        <th>ID</th>
+                        <th>IP</th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="groupheader" let-source let-rowIndex="rowIndex" let-expanded="expanded">
+                    <tr>
+                        <td colspan="4">
+                            <button type="button" pButton pRipple [pRowToggler]="source"
+                                class="p-button-text p-button-rounded p-button-plain mr-2"
+                                [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></button>
+                            <span class="font-bold ml-2">{{source.name}}</span>
+                        </td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="rowexpansion" let-source>
+                    <tr>
+                        <td>
+                        </td>
+                        <td>
+                            {{source.nickname}}
+                        </td>
+                        <td>
+                            {{source.id}}
+                        </td>
+                        <td>
+                            {{source.ip}}
+                        </td>
+                    </tr>
+                </ng-template>
+            </p-table>
+        </div>
+    </div>
+
+</div>

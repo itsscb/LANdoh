@@ -7,7 +7,77 @@ use landoh::client::Client;
 
 use landoh::app::{App, Config};
 
-use log::info;
+use landoh::source::Source;
+use log::{info, warn};
+use tauri::{Manager, Window};
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+#[derive(serde::Serialize, Debug, Clone)]
+struct Payload {
+    name: String,
+    id: String,
+    nickname: String,
+    ip: Option<String>,
+}
+
+#[tauri::command]
+async fn test_emit(
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+    window: Window,
+) -> Result<(), ()> {
+    let a = Arc::clone(&state);
+    tauri::async_runtime::spawn(async move {
+        let num = a.lock().await.sources.lock().unwrap().len();
+        let s = landoh::source::Source::new(
+            format!("{}", num),
+            format!("nick-{}", num),
+            None,
+            vec!["root".to_string()],
+        );
+        let _ = window.emit_all("test_emit", s);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+async fn listen(
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+    window: Window,
+) -> Result<(), ()> {
+    let a = Arc::clone(&state);
+    // let wa = Arc::new(window);
+    // let w = Arc::clone(&wa);
+    tauri::async_runtime::spawn(async move {
+        let rx = a.lock().await.listen();
+        tauri::async_runtime::spawn(async move {
+            while let Ok(s) = rx.recv() {
+                let mut payload: Vec<Payload> = vec![];
+                s.iter().for_each(|so| {
+                    so.shared_directories.iter().for_each(|d| {
+                        payload.push(Payload {
+                            name: d.to_string(),
+                            id: so.id.clone(),
+                            nickname: so.nickname.clone(),
+                            ip: so.ip.clone(),
+                        });
+                    })
+                });
+
+                info!("got update: {:?}", &payload);
+                let err = window.emit_all("sources", payload);
+                match err {
+                    Ok(_) => {}
+                    Err(err) => {
+                        warn!("Error emitting message: {:?}", err);
+                    }
+                }
+            }
+        });
+        // let _ = wa.emit_all("message", "SOURCES: listening for updates");
+    });
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,6 +94,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Serve {
             #[arg(short, long)]
             address: Option<String>,
+            #[arg(short, long, num_args(0..))]
+            dirs: Option<Vec<String>>,
+        },
+        TestBroadcast {
+            #[arg(short, long)]
+            nickname: Option<String>,
+            #[arg(short, long)]
+            id: Option<String>,
             #[arg(short, long, num_args(0..))]
             dirs: Option<Vec<String>>,
         },
@@ -48,6 +126,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
+        Some(Commands::TestBroadcast { dirs, nickname, id }) => {
+            let tx = landoh::multicast::Sender::new().unwrap();
+            let mut def = vec!["root".to_string(), "testdir".to_string()];
+            let dirs = match dirs {
+                Some(mut d) => {
+                    d.append(&mut def);
+                    d
+                }
+                None => def,
+            };
+
+            let nick = match nickname {
+                Some(n) => n,
+                None => "test-nick".to_string(),
+            };
+
+            let uid = match id {
+                Some(i) => i,
+                None => Uuid::new_v4().to_string(),
+            };
+
+            let s = Source::new(uid, nick, None, dirs);
+
+            info!("sending payload: {:?}", &s);
+
+            let _ = tx.send(s);
+        }
         Some(Commands::Serve { dirs, address }) => {
             let addr: SocketAddr = match address {
                 Some(addr) => addr.as_str().parse()?,
@@ -118,7 +223,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             c.list_directories(addr).await?;
         }
         _ => {
-            return Ok(());
+            tauri::Builder::default()
+                .manage(Arc::new(Mutex::new(App::new_from_config().unwrap())))
+                // .invoke_handler(tauri::generate_handler![listen])
+                .invoke_handler(tauri::generate_handler![test_emit, listen])
+                .run(tauri::generate_context!())
+                .expect("error while running tauri application");
         }
     };
 

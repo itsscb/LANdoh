@@ -26,9 +26,3 @@ sassdoc
 /.angular
 
 package-lock.json
-
-src/assets/demo/*.css
-src/assets/layout/css/*/layout-*.css
-src/assets/theme/*/theme-*.css
-src/assets/sass/theme/designer
-

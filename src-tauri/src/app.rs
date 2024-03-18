@@ -6,7 +6,10 @@ use std::{
     io::{Read, Write},
     net::SocketAddr,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{self, Receiver},
+        Arc, Mutex,
+    },
     thread,
     time::Duration,
 };
@@ -135,12 +138,14 @@ impl App {
         };
     }
 
-    pub fn listen(&mut self) {
+    pub fn listen(&mut self) -> Receiver<Vec<Source>> {
         let s = Arc::clone(&self.sources);
         let id = self.config.id.to_string();
+        let (tx, rx) = mpsc::channel::<Vec<Source>>();
         self.handles.spawn(async move {
-            receiver::listen(id, s).unwrap();
+            receiver::listen(id, s, Some(tx)).unwrap();
         });
+        rx
     }
 
     pub fn broadcast(&mut self) {

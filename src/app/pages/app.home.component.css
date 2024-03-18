@@ -1,0 +1,5 @@
+.p-datatable-thead~th {
+    font-weight: 700;
+    color: red !important;
+    background-color: rgba(32, 32, 32, 50);
+}

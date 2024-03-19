@@ -8,11 +8,13 @@ use std::{
     path::PathBuf,
     sync::{
         mpsc::{self, Receiver},
-        Arc, Mutex,
+        Arc,
     },
     thread,
     time::Duration,
 };
+
+use tokio::sync::Mutex;
 
 use log::info;
 
@@ -93,7 +95,7 @@ fn set_loglevel(lvl: LogLevel) {
 }
 
 pub struct App {
-    pub config: Config,
+    pub config: Arc<Mutex<Config>>,
     pub handles: JoinSet<()>,
     sender: Arc<Mutex<Sender>>,
     pub sources: Sources,
@@ -105,8 +107,9 @@ impl App {
         let _ = env_logger::try_init();
 
         save_config(&config).unwrap();
+
         App {
-            config: config,
+            config: Arc::new(Mutex::new(config)),
             handles: JoinSet::new(),
             sender: Arc::new(Mutex::new(Sender::new().unwrap())),
             sources: Arc::new(Mutex::new(vec![])),
@@ -138,30 +141,32 @@ impl App {
         };
     }
 
-    pub fn listen(&mut self) -> Receiver<Vec<Source>> {
+    pub async fn listen(&mut self) -> Receiver<Vec<Source>> {
         let s = Arc::clone(&self.sources);
-        let id = self.config.id.to_string();
+        let id = self.config.lock().await.id.to_string();
         let (tx, rx) = mpsc::channel::<Vec<Source>>();
         self.handles.spawn(async move {
-            receiver::listen(id, s, Some(tx)).unwrap();
+            let _ = receiver::listen(id, s, Some(tx)).await;
         });
         rx
     }
 
-    pub fn broadcast(&mut self) {
-        let id = self.config.id.clone();
-        let nickname = self.config.nickname.clone();
+    pub async fn broadcast(&mut self) {
+        let id = self.config.lock().await.id.clone();
+        let nickname = self.config.lock().await.nickname.clone();
         let s = Arc::clone(&self.sender);
-        let dirs = Arc::clone(&self.config.shared_directories);
+        // let a = Arc::new(self.config.lock().await.shared_directories);
+        let dirs = Arc::clone(&self.config);
         self.handles.spawn(async move {
             loop {
                 thread::sleep(Duration::from_secs(30));
-                let _ = s.lock().unwrap().send(Source::new(
+                let _ = s.lock().await.send(Source::new(
                     id.to_string(),
                     nickname.to_string(),
                     None,
                     dirs.lock()
-                        .unwrap()
+                        .await
+                        .shared_directories
                         .iter()
                         .map(|d| d.name.clone())
                         .collect(),
@@ -170,24 +175,24 @@ impl App {
         });
     }
 
-    pub fn publish(&self, payload: Source) -> Result<(), Box<dyn Error>> {
-        self.sender.lock().unwrap().send(payload)
+    pub async fn publish(&self, payload: Source) -> Result<(), Box<dyn Error>> {
+        self.sender.lock().await.send(payload).await
     }
 
     pub async fn serve(&mut self) {
-        let a = Arc::clone(&self.config.shared_directories);
-        let server = Server::new(a);
-        let addr = self.config.address;
+        let s = self.config.lock().await;
+        let server = Server::new(s.shared_directories.clone());
+        let addr = s.address;
         let _ = env_logger::try_init();
 
         info!(
             "serving backend on {} as {}\nID: {}",
             &addr.ip().to_string(),
-            &self.config.nickname,
-            &self.config.id,
+            &s.nickname,
+            &s.id,
         );
         self.handles.spawn(async move {
-            let _ = server.serve(addr).await;
+            let _ = server.serve(addr.clone()).await;
         });
     }
 
@@ -196,7 +201,7 @@ impl App {
     }
 
     #[allow(dead_code)]
-    pub fn add_shared_dir(
+    pub async fn add_shared_dir(
         &mut self,
         name: String,
         paths: Vec<String>,
@@ -216,33 +221,36 @@ impl App {
         };
         let _ = &self
             .config
-            .shared_directories
             .lock()
-            .unwrap()
+            .await
+            .shared_directories
             .push(dir.clone());
 
+        let c = self.config.lock().await;
+
         self.publish(Source::new(
-            self.config.id.to_string(),
-            self.config.nickname.clone(),
+            c.id.to_string(),
+            c.nickname.clone(),
             None,
             self.config
-                .shared_directories
                 .lock()
-                .unwrap()
+                .await
+                .shared_directories
                 .iter()
                 .map(|i| i.name.clone())
                 .collect(),
-        ))?;
+        ))
+        .await?;
 
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn remove_shared_dir(&mut self, name: String) {
+    pub async fn remove_shared_dir(&mut self, name: String) {
         self.config
-            .shared_directories
             .lock()
-            .unwrap()
+            .await
+            .shared_directories
             .retain(|d| d.name != name);
     }
 }
@@ -251,7 +259,7 @@ impl App {
 pub struct Config {
     pub id: String,
     pub nickname: String,
-    pub shared_directories: Arc<Mutex<Vec<Directory>>>,
+    pub shared_directories: Vec<Directory>,
     pub destination: PathBuf,
     pub address: SocketAddr,
 }
@@ -264,15 +272,14 @@ impl Config {
         nickname: Option<String>,
     ) -> Result<Self, Box<dyn Error>> {
         let id = Uuid::new_v4().to_string();
-        let dirs: Arc<Mutex<Vec<Directory>>> = Arc::new(Mutex::new(
-            shared_directories
-                .iter()
-                .map(|d| Directory {
-                    name: d.to_string(),
-                    paths: vec![d.to_string()],
-                })
-                .collect(),
-        ));
+        let dirs = shared_directories
+            .iter()
+            .map(|d| Directory {
+                name: d.to_string(),
+                paths: vec![d.to_string()],
+            })
+            .collect();
+
         let dest = PathBuf::from(destination);
 
         let nick = match nickname {

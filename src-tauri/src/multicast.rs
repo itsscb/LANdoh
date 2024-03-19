@@ -4,9 +4,11 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::{
     error::Error,
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
+
+use tokio::sync::Mutex;
 
 use serde::Serialize;
 
@@ -38,12 +40,12 @@ impl Sender {
     }
 
     #[allow(dead_code)]
-    pub fn send<T: Serialize>(&self, data: T) -> Result<(), Box<dyn Error>> {
+    pub async fn send<T: Serialize>(&self, data: T) -> Result<(), Box<dyn Error>> {
         let payload = serde_json::to_string(&data)?;
 
         self.socket
             .lock()
-            .unwrap()
+            .await
             .send_to(payload.as_bytes(), &self.addr)?;
         Ok(())
     }
@@ -55,14 +57,16 @@ pub mod receiver {
         error::Error,
         io,
         net::{Ipv4Addr, SocketAddr, UdpSocket},
-        sync::{mpsc::Sender, Arc, Mutex},
+        sync::{mpsc::Sender, Arc},
         time::Duration,
     };
+
+    use tokio::sync::Mutex;
 
     pub use crate::source::Source;
 
     #[allow(dead_code)]
-    pub fn listen(
+    pub async fn listen(
         id: String,
         sources: Arc<Mutex<Vec<Source>>>,
         sender: Option<Sender<Vec<Source>>>,
@@ -91,7 +95,7 @@ pub mod receiver {
                                 continue;
                             }
 
-                            let mut dirs = sources.lock().unwrap();
+                            let mut dirs = sources.lock().await;
                             match dirs.iter_mut().find(|ref i| i.id == p.id) {
                                 Some(ref mut i) => {
                                     i.nickname = p.nickname;

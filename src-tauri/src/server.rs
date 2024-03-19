@@ -1,7 +1,4 @@
-use std::{
-    error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin, sync::Arc,
-    sync::Mutex,
-};
+use std::{error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin};
 
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
@@ -32,12 +29,12 @@ mod pb_proto {
 
 #[derive(Debug)]
 pub struct Server {
-    directories: Arc<Mutex<Vec<Directory>>>,
+    directories: Vec<Directory>,
 }
 
 impl Server {
     #[allow(dead_code)]
-    pub fn new(directories: Arc<Mutex<Vec<Directory>>>) -> Self {
+    pub fn new(directories: Vec<Directory>) -> Self {
         Server {
             directories: directories,
         }
@@ -58,14 +55,8 @@ impl Server {
         Ok(())
     }
 
-    pub fn get_dir(&self, name: &String) -> Option<Directory> {
-        match self
-            .directories
-            .lock()
-            .unwrap()
-            .iter()
-            .find(|d| &d.name == name)
-        {
+    pub async fn get_dir(&self, name: &String) -> Option<Directory> {
+        match self.directories.iter().find(|d| &d.name == name) {
             Some(d) => Some(d.clone()),
             None => None,
         }
@@ -80,13 +71,7 @@ impl LanDoh for Server {
         _request: Request<ListDirectoriesRequest>,
     ) -> Result<Response<ListDirectoriesResponse>, Status> {
         Ok(Response::new(ListDirectoriesResponse {
-            dirs: self
-                .directories
-                .lock()
-                .unwrap()
-                .iter()
-                .map(|d| d.clone())
-                .collect(),
+            dirs: self.directories.iter().map(|d| d.clone()).collect(),
         }))
     }
 
@@ -96,7 +81,7 @@ impl LanDoh for Server {
     ) -> Result<Response<GetDirectoryResponse>, Status> {
         let r = request.into_inner();
 
-        let dir_res = self.get_dir(&r.name);
+        let dir_res = self.get_dir(&r.name).await;
 
         if dir_res == None {
             return Err(Status::invalid_argument(format!(
@@ -141,7 +126,7 @@ impl LanDoh for Server {
         let path = PathBuf::from(r.path.clone());
 
         let mut shared_dir = false;
-        for d in self.directories.lock().unwrap().iter() {
+        for d in self.directories.iter() {
             if contains_partial_path(path.to_str(), &d.paths) {
                 shared_dir = true;
             }

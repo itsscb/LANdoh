@@ -44,7 +44,7 @@ async fn request_dir(
             .await
             .sources
             .lock()
-            .unwrap()
+            .await
             .iter()
             .find(|s| s.id == id)
             .map(|s| s.ip.clone())
@@ -53,8 +53,9 @@ async fn request_dir(
             _ => "127.0.0.1".to_string(),
         };
 
-        // TODO: Remove for PROD
-        let ip = "127.0.0.1".to_string();
+        // // TODO: Remove for PROD
+        // let ip = "127.0.0.1".to_string();
+
         addr.push_str(&ip);
         addr.push_str(":9001");
 
@@ -62,12 +63,16 @@ async fn request_dir(
             .lock()
             .await
             .config
+            .lock()
+            .await
             .destination
             .to_str()
             .unwrap()
             .to_string();
 
         let c = Arc::new(Client::new(dest));
+
+        info!("REQUESTING: {} from {:?}", dir, addr);
 
         let files = c.get_directory(dir, addr.to_string()).await.unwrap();
         c.get_all_files(addr.to_string(), files).await.unwrap();
@@ -82,7 +87,7 @@ async fn test_emit(
 ) -> Result<(), ()> {
     let a = Arc::clone(&state);
     tauri::async_runtime::spawn(async move {
-        let num = a.lock().await.sources.lock().unwrap().len();
+        let num = a.lock().await.sources.lock().await.len();
         let s = landoh::source::Source::new(
             format!("{}", num),
             format!("nick-{}", num),
@@ -103,7 +108,7 @@ async fn listen(
     // let wa = Arc::new(window);
     // let w = Arc::clone(&wa);
     tauri::async_runtime::spawn(async move {
-        let rx = a.lock().await.listen();
+        let rx = a.lock().await.listen().await;
         tauri::async_runtime::spawn(async move {
             while let Ok(s) = rx.recv() {
                 let mut payload: Vec<Payload> = vec![];
@@ -210,7 +215,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Serve { dirs, address }) => {
             let addr: SocketAddr = match address {
                 Some(addr) => addr.as_str().parse()?,
-                None => "127.0.0.1:9001".parse()?,
+                None => "0.0.0.0:9001".parse()?,
             };
             let dirs = match dirs {
                 Some(dirs) => dirs,
@@ -225,15 +230,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let _ = app.add_shared_dir("src".to_string(), vec!["src".to_string()]);
-            app.listen();
+            app.listen().await;
             let s = Arc::clone(&app.sources);
             app.handles.spawn(async move {
                 loop {
                     thread::sleep(Duration::from_secs(5));
-                    info!("client dirs: {:?}", s.lock().unwrap());
+                    info!("client dirs: {:?}", s.lock().await);
                 }
             });
-            app.broadcast();
+            app.broadcast().await;
             app.serve().await;
             // app.handles.spawn(async move {
             //     tauri::Builder::default()

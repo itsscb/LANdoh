@@ -60,7 +60,7 @@ fn save_config(config: &Config) -> Result<(), Box<dyn Error>> {
 fn config_path() -> PathBuf {
     let mut appdata = env::var("APPDATA").unwrap();
 
-    appdata.extend(["landoh", "config.ini"]);
+    appdata.extend(["/", "LANdoh", "/", "config.ini"]);
     PathBuf::from(appdata)
 }
 

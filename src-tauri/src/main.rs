@@ -219,7 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let dirs = match dirs {
                 Some(dirs) => dirs,
-                None => vec![".".to_string()],
+                None => vec![],
             };
 
             let config = Config::new(dirs, "testdestination".to_string(), addr, None).unwrap();
@@ -229,7 +229,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Err(_) => App::new(config),
             };
 
-            let _ = app.add_shared_dir("src".to_string(), vec!["src".to_string()]);
             app.listen().await;
             let s = Arc::clone(&app.sources);
             app.handles.spawn(async move {
@@ -287,13 +286,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Err(_) => {
                     let addr: SocketAddr = "127.0.0.1:9001".parse().unwrap();
 
-                    let config = Config::new(
-                        vec![".".to_string(), "testdir".to_string()],
-                        "testdestination".to_string(),
-                        addr,
-                        None,
-                    )
-                    .unwrap();
+                    let config =
+                        Config::new(vec![], "testdestination".to_string(), addr, None).unwrap();
                     App::new(config)
                 }
             };

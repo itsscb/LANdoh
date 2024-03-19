@@ -22,6 +22,60 @@ struct Payload {
 }
 
 #[tauri::command]
+async fn serve(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<(), ()> {
+    let a = Arc::clone(&state);
+    tauri::async_runtime::spawn(async move {
+        a.lock().await.serve().await;
+    });
+    Ok(())
+}
+
+#[tauri::command]
+async fn request_dir(
+    id: String,
+    dir: String,
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+) -> Result<(), ()> {
+    let a = Arc::clone(&state);
+    tauri::async_runtime::spawn(async move {
+        let mut addr = String::from("http://");
+        let ip = match a
+            .lock()
+            .await
+            .sources
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|s| s.id == id)
+            .map(|s| s.ip.clone())
+        {
+            Some(Some(ip)) => ip,
+            _ => "127.0.0.1".to_string(),
+        };
+
+        // TODO: Remove for PROD
+        let ip = "127.0.0.1".to_string();
+        addr.push_str(&ip);
+        addr.push_str(":9001");
+
+        let dest = a
+            .lock()
+            .await
+            .config
+            .destination
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let c = Arc::new(Client::new(dest));
+
+        let files = c.get_directory(dir, addr.to_string()).await.unwrap();
+        c.get_all_files(addr.to_string(), files).await.unwrap();
+    });
+    Ok(())
+}
+
+#[tauri::command]
 async fn test_emit(
     state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
     window: Window,
@@ -223,10 +277,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             c.list_directories(addr).await?;
         }
         _ => {
+            let app = match App::new_from_config() {
+                Ok(a) => a,
+                Err(_) => {
+                    let addr: SocketAddr = "127.0.0.1:9001".parse().unwrap();
+
+                    let config = Config::new(
+                        vec![".".to_string(), "testdir".to_string()],
+                        "testdestination".to_string(),
+                        addr,
+                        None,
+                    )
+                    .unwrap();
+                    App::new(config)
+                }
+            };
+
             tauri::Builder::default()
-                .manage(Arc::new(Mutex::new(App::new_from_config().unwrap())))
+                .manage(Arc::new(Mutex::new(app)))
                 // .invoke_handler(tauri::generate_handler![listen])
-                .invoke_handler(tauri::generate_handler![test_emit, listen])
+                .invoke_handler(tauri::generate_handler![
+                    serve,
+                    test_emit,
+                    listen,
+                    request_dir
+                ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");
         }

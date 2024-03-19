@@ -27,11 +27,24 @@ export class AppHomeComponent implements OnInit {
     this.listening = true;
   }
 
+  serve() {
+    console.log("clicked: serve()");
+    invoke('serve');
+    this.serving = true;
+  }
+
+
+  request_dir(id: string, name: string) {
+    console.log("clicked: request_dir(", id, name, ")");
+    invoke("request_dir", { id: id, dir: name });
+  }
+
   dark: boolean;
 
   checked: boolean;
 
   listening = false;
+  serving = false;
 
   sources: Directory[];
 

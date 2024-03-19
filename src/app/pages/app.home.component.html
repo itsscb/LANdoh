@@ -6,6 +6,7 @@
             <p [innerHtml]="checked"></p>
             <!-- <button (click)="test_emit()">test_emit</button> -->
             <button (click)="listen()" [disabled]="listening">listen</button>
+            <button (click)="serve()" [disabled]="serving">serve</button>
             <p-table [value]="sources" sortField="name" sortMode="single" dataKey="name" rowGroupMode="subheader"
                 groupRowsBy="name" [tableStyle]="{'min-width': '40rem'}">
                 <ng-template pTemplate="header">
@@ -14,11 +15,12 @@
                         <th>Nickname</th>
                         <th>ID</th>
                         <th>IP</th>
+                        <th></th>
                     </tr>
                 </ng-template>
                 <ng-template pTemplate="groupheader" let-source let-rowIndex="rowIndex" let-expanded="expanded">
                     <tr>
-                        <td colspan="4">
+                        <td colspan="5">
                             <button type="button" pButton pRipple [pRowToggler]="source"
                                 class="p-button-text p-button-rounded p-button-plain mr-2"
                                 [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></button>
@@ -38,6 +40,9 @@
                         </td>
                         <td>
                             {{source.ip}}
+                        </td>
+                        <td>
+                            <button (click)="request_dir(source.id, source.name)">Download</button>
                         </td>
                     </tr>
                 </ng-template>

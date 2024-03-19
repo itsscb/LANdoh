@@ -284,7 +284,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let app = match App::new_from_config() {
                 Ok(a) => a,
                 Err(_) => {
-                    let addr: SocketAddr = "127.0.0.1:9001".parse().unwrap();
+                    let addr: SocketAddr = "0.0.0.0:9001".parse().unwrap();
 
                     let config =
                         Config::new(vec![], "testdestination".to_string(), addr, None).unwrap();

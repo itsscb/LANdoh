@@ -51,7 +51,7 @@ fn save_config(config: &Config) -> Result<(), Box<dyn Error>> {
 
     fs::create_dir_all(path.parent().unwrap())?;
 
-    fs::remove_file(&path)?;
+    fs::remove_file(&path).unwrap_or_default();
 
     let mut file = f.write(true).create(true).open(&path)?;
 

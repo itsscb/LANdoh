@@ -108,7 +108,7 @@
                             {{source.ip}}
                         </td>
                         <td>
-                            <button (click)="request_dir(source.id, source.name)">Download</button>
+                            <p-button class="ml-auto" icon="pi pi-download" (click)="this.request_dir(source.id, source.name)" [rounded]="true" severity="danger" [outlined]="false"></p-button>
                         </td>
                     </tr>
                 </ng-template>

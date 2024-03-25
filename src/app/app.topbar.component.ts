@@ -9,12 +9,12 @@ import {AppMainComponent} from './app.main.component';
                 <div class="layout-topbar-left">
 					<div class="layout-topbar-logo-wrapper">
 						<a href="#" class="layout-topbar-logo">
-							<img src="assets/layout/images/logo-mirage@2x.png" alt="landoh-layout" />
-							<span class="app-name">landoh</span>
+							<img src="assets/logo.png" alt="landoh-layout" />
+							<span class="app-name">LANdoh</span>
 						</a>
 					</div>
 
-					<a href="#" class="sidebar-menu-button" (click)="appMain.onMenuButtonClick($event)">
+					<!-- <a href="#" class="sidebar-menu-button" (click)="appMain.onMenuButtonClick($event)">
 						<i class="pi pi-bars"></i>
 					</a>
 
@@ -353,7 +353,7 @@ import {AppMainComponent} from './app.main.component';
 								</li>
 							</ul>
 						</li>
-					</ul>
+					</ul> -->
                 </div>
             </div>
         </div>

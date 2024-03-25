@@ -1,75 +1,125 @@
+// import { confirm } from '@tauri-apps/api/dialog';
+// import { homeDir } from '@tauri-apps/api/path';
+// import { MessageService } from 'primeng/api';
+
 import { Component, OnInit } from '@angular/core';
 
 import { TableModule } from 'primeng/table';
+import { AccordionModule } from 'primeng/accordion';
 
-import { Source } from '../models/source';
 
 import { invoke } from '@tauri-apps/api';
+import { open } from '@tauri-apps/api/dialog';
 import { emit, listen } from '@tauri-apps/api/event'
 import { appWindow } from '@tauri-apps/api/window';
+
+import { SharedDirectory } from '../models/source';
 import { Directory } from '../models/directory';
+import { App } from '../models/app';
 
 @Component({
   selector: 'app-home',
   templateUrl: './app.home.component.html',
   styleUrls: ['./app.home.component.css'],
+  // providers: [MessageService]
 })
 export class AppHomeComponent implements OnInit {
+  // constructor(private toastService: MessageService) {}
 
-  // test_emit() {
-  //   console.log("clicked: test_emit()");
-  //   invoke('test_emit', { window: appWindow });
-  // }
+  app_state() {
+    invoke('app_state').then((s) => {
+      this.apps = [s as App];
+      this.app = structuredClone(s as App);
+      // this.app.shared_directories = this.app.shared_directories as SharedDirectory[];
+      console.log(this.app);
+    })
+    console.log(this.app);
+  }
 
-  listen() {
-    console.log("clicked: listen()");
-    invoke('listen', { window: appWindow });
-    this.listening = true;
+  update_nickname(nick: string) {
+    invoke('update_nickname', {nickname: nick, window: appWindow}).then(() => this.app_state());
+  }
+
+  async update_destination() {
+    const selected = await open({
+      multiple: false,
+      directory: true,
+    })
+    invoke('update_destination', {destination: selected, window: appWindow}).then(() => this.app_state());
+  }
+
+  async add_shared_dir() {
+    const selected = await open({
+      multiple: false,
+      directory: true,
+    })
+    invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => this.app_state());
+  }
+
+  listen_for() {
+    if (!this.listening) {
+      console.log("clicked: listen()");
+      invoke('listen_for', { window: appWindow });
+      this.listening = true;
+    }
   }
 
   serve() {
-    console.log("clicked: serve()");
-    invoke('serve');
-    this.serving = true;
+    if (!this.serving) {
+      console.log("clicked: serve()");
+      invoke('serve');
+      this.serving = true;
+    }
   }
 
+  broadcast() {
+    if(!this.broadcasting) {
+      console.log("broadcasting");
+      invoke("broadcast");
+      this.broadcasting = true;
+    }
+  }
 
   request_dir(id: string, name: string) {
     console.log("clicked: request_dir(", id, name, ")");
     invoke("request_dir", { id: id, dir: name });
   }
 
-  dark: boolean;
+ async watch() {
+    await listen('sources', (event) => {
+      this.new_sources = [...event.payload as Directory[]];
+      // this.toastService.add({
+      //   severity: 'success', summary: 'Some new Directories were shared',
+      // });
+    })
+  }
 
-  checked: boolean;
+  apps: App[];
+  app: App;
+
+  dark: boolean;
 
   listening = false;
   serving = false;
+  broadcasting = false;
+
+  update_sources() {
+    this.sources = [...this.new_sources];
+    this.new_sources = null;
+  }
 
   sources: Directory[];
+  new_sources: Directory[];
 
   async ngOnInit(): Promise<void> {
-    // const unlisten_emit = await listen('test_emit', (event) => {
-    //   // event.event is the event name (useful if you want to use a single callback fn for multiple event types)
-    //   // event.payload is the payload object
-    //   let s = event.payload as Source;
-    //   this.sources = [...this.sources, s];
-    //   console.log(this.sources);
-    //   this.checked = !this.checked;
-    // })
-    const unlisten_listen = await listen('sources', (event) => {
-      // event.event is the event name (useful if you want to use a single callback fn for multiple event types)
-      // event.payload is the payload object
-      this.sources = [...event.payload as Directory[]];
-      console.log(event.payload);
-    })
-    this.sources = [{
-      id: "1",
-      nickname: "nick-1",
-      name: "test",
-      ip: "localhost"
-    }
-    ];
+   
+    // const confirmed = await confirm('Are you sure?', 'Tauri');
+    
+    this.app_state();
+    this.listen_for();
+    this.serve();
+    this.broadcast();
+    await this.watch()
   }
 
 

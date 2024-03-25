@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::path::PathBuf;
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 use landoh::client::Client;
@@ -31,6 +32,50 @@ async fn serve(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<
 }
 
 #[tauri::command]
+async fn broadcast(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<(), ()> {
+    let a = Arc::clone(&state);
+    tauri::async_runtime::spawn(async move {
+        a.lock().await.broadcast().await;
+    });
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_nickname(
+    nickname: String,
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+) -> Result<(), ()> {
+    info!("updated nickname to: {}", &nickname);
+    state.lock().await.config.lock().await.nickname = nickname;
+    state.lock().await.save_config().await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_destination(
+    destination: String,
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+) -> Result<(), ()> {
+    info!("updated destination to: {}", &destination);
+    state.lock().await.config.lock().await.destination = PathBuf::from(destination);
+    state.lock().await.save_config().await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn add_shared_dir(
+    path: String,
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+) -> Result<(), ()> {
+    let _ = state
+        .lock()
+        .await
+        .add_shared_dir(path.clone(), vec![path])
+        .await;
+    Ok(())
+}
+
+#[tauri::command]
 async fn request_dir(
     id: String,
     dir: String,
@@ -52,9 +97,6 @@ async fn request_dir(
             Some(Some(ip)) => ip,
             _ => "127.0.0.1".to_string(),
         };
-
-        // // TODO: Remove for PROD
-        // let ip = "127.0.0.1".to_string();
 
         addr.push_str(&ip);
         addr.push_str(":9001");
@@ -80,33 +122,42 @@ async fn request_dir(
     Ok(())
 }
 
-#[tauri::command]
-async fn test_emit(
-    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
-    window: Window,
-) -> Result<(), ()> {
-    let a = Arc::clone(&state);
-    tauri::async_runtime::spawn(async move {
-        let num = a.lock().await.sources.lock().await.len();
-        let s = landoh::source::Source::new(
-            format!("{}", num),
-            format!("nick-{}", num),
-            None,
-            vec!["root".to_string()],
-        );
-        let _ = window.emit_all("test_emit", s);
-    });
-    Ok(())
+#[derive(serde::Serialize)]
+#[allow(dead_code)]
+struct DisplayApp {
+    address: String,
+    destination: String,
+    id: String,
+    nickname: String,
+    shared_directories: Vec<String>,
 }
 
 #[tauri::command]
-async fn listen(
+async fn app_state(
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+) -> Result<DisplayApp, ()> {
+    let app = state.lock().await;
+    let c = app.config.lock().await;
+    let a = DisplayApp {
+        address: c.address.to_string(),
+        destination: c.destination.to_str().unwrap().to_string(),
+        id: c.id.clone(),
+        nickname: c.nickname.clone(),
+        shared_directories: c
+            .shared_directories
+            .iter()
+            .map(|f| f.name.clone())
+            .collect(),
+    };
+    Ok(a)
+}
+
+#[tauri::command]
+async fn listen_for(
     state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
     window: Window,
 ) -> Result<(), ()> {
     let a = Arc::clone(&state);
-    // let wa = Arc::new(window);
-    // let w = Arc::clone(&wa);
     tauri::async_runtime::spawn(async move {
         let rx = a.lock().await.listen().await;
         tauri::async_runtime::spawn(async move {
@@ -123,7 +174,7 @@ async fn listen(
                     })
                 });
 
-                info!("got update: {:?}", &payload);
+                println!("got update: {:?}", &payload);
                 let err = window.emit_all("sources", payload);
                 match err {
                     Ok(_) => {}
@@ -133,7 +184,6 @@ async fn listen(
                 }
             }
         });
-        // let _ = wa.emit_all("message", "SOURCES: listening for updates");
     });
     Ok(())
 }
@@ -208,9 +258,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let s = Source::new(uid, nick, None, dirs);
 
-            info!("sending payload: {:?}", &s);
+            println!("sending payload: {:?}", &s);
 
-            let _ = tx.send(s);
+            let _ = tx.send(s).await;
         }
         Some(Commands::Serve { dirs, address }) => {
             let addr: SocketAddr = match address {
@@ -239,11 +289,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
             app.broadcast().await;
             app.serve().await;
-            // app.handles.spawn(async move {
-            //     tauri::Builder::default()
-            //         .run(tauri::generate_context!());
-            //         .expect("error while running tauri application");
-            // });
             app.join_all().await;
         }
         Some(Commands::GetAllFiles {
@@ -294,12 +339,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             tauri::Builder::default()
                 .manage(Arc::new(Mutex::new(app)))
-                // .invoke_handler(tauri::generate_handler![listen])
                 .invoke_handler(tauri::generate_handler![
                     serve,
-                    test_emit,
-                    listen,
-                    request_dir
+                    listen_for,
+                    request_dir,
+                    app_state,
+                    update_nickname,
+                    update_destination,
+                    broadcast,
+                    add_shared_dir,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");

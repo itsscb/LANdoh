@@ -94,6 +94,7 @@ fn set_loglevel(lvl: LogLevel) {
     env::set_var("RUST_LOG", lvl.to_string());
 }
 
+#[derive(Debug)]
 pub struct App {
     pub config: Arc<Mutex<Config>>,
     pub handles: JoinSet<()>,
@@ -139,6 +140,10 @@ impl App {
                 return Err("Config file not found".into());
             }
         };
+    }
+
+    pub async fn save_config(&self) {
+        save_config(&self.config.lock().await.clone()).unwrap();
     }
 
     pub async fn listen(&mut self) -> Receiver<Vec<Source>> {
@@ -219,6 +224,7 @@ impl App {
             name: name.to_string(),
             paths: existing_paths,
         };
+
         let _ = &self
             .config
             .lock()
@@ -232,10 +238,7 @@ impl App {
             c.id.to_string(),
             c.nickname.clone(),
             None,
-            self.config
-                .lock()
-                .await
-                .shared_directories
+            c.shared_directories
                 .iter()
                 .map(|i| i.name.clone())
                 .collect(),
@@ -255,7 +258,7 @@ impl App {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Config {
     pub id: String,
     pub nickname: String,

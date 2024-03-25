@@ -8,7 +8,7 @@ import {Subscription} from 'rxjs';
 @Component({
     selector: 'app-config',
     template: `
-        <a href="#" class="layout-config-button" (click)="onConfigButtonClick($event)">
+        <!-- <a href="#" class="layout-config-button" (click)="onConfigButtonClick($event)">
             <i class="pi pi-cog"></i>
         </a>
         <div id="layout-config" class="layout-config" [ngClass]="{'layout-config-exit-done': !appMain.configActive,
@@ -115,7 +115,7 @@ import {Subscription} from 'rxjs';
                     </p-tabPanel>
                 </p-tabView>
             </div>
-        </div>
+        </div> -->
     `,
     animations: [
         trigger('children', [
@@ -247,6 +247,15 @@ export class AppConfigComponent implements OnInit {
             {name: 'Red', file: 'red', image: 'red.svg'},
             {name: 'Indigo', file: 'indigo', image: 'indigo.svg'},
         ];
+
+        this.app.menuColorMode = 'dark';
+        this.app.menuColor = 'layout-menu-dark';
+        this.app.darkMode = true;
+        this.selectedColorOptions = this.darkColors;
+        this.app.layoutColor = this.selectedColorOptions[0].file;
+        this.changeLightDarkLayout('layout-css', this.selectedColorOptions[0].file, 'layout-dark');
+        this.changeLightDarkTheme('theme-css', 'theme-dark');
+
     }
 
     changeLayout(event, mode) {

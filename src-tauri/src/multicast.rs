@@ -12,6 +12,7 @@ use tokio::sync::Mutex;
 
 use serde::Serialize;
 
+#[derive(Debug)]
 pub struct Sender {
     socket: Arc<Mutex<UdpSocket>>,
     addr: SocketAddr,
@@ -65,6 +66,8 @@ pub mod receiver {
 
     pub use crate::source::Source;
 
+    use log::info;
+
     #[allow(dead_code)]
     pub async fn listen(
         id: String,
@@ -84,6 +87,7 @@ pub mod receiver {
             let mut buf = [0u8; 1024];
             match listener.recv_from(&mut buf) {
                 Ok((len, remote_addr)) => {
+                    info!("msg from: {:?}", remote_addr);
                     if remote_addr.to_string() == id {
                         ()
                     }

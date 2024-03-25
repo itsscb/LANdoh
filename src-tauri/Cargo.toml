@@ -12,7 +12,7 @@ rust-version = "1.60"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tauri = { version = "1.6.0", features = [] }
+tauri = { version = "1.6.0", features = ["dialog-all"] }
 
 tonic = "0.11.0"
 tonic-reflection = "0.11.0"

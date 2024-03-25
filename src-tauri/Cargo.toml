@@ -1,9 +1,9 @@
 [package]
 name = "landoh"
-version = "0.2.0"
+version = "0.3.0"
 description = "LAN distributor of hell"
 authors = ["itsscb"]
-license = ""
+license = "MIT"
 repository = "github.com/itsscb/LANdoh"
 default-run = "landoh"
 edition = "2021"
@@ -12,7 +12,7 @@ rust-version = "1.60"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tauri = { version = "1.6.0", features = ["dialog-all"] }
+tauri = { version = "1.6.0", features = [ "dialog-open"] }
 
 tonic = "0.11.0"
 tonic-reflection = "0.11.0"

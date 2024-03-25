@@ -72,6 +72,19 @@ async fn add_shared_dir(
         .await
         .add_shared_dir(path.clone(), vec![path])
         .await;
+
+    let _ = state.lock().await.save_config().await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn remove_shared_dir(
+    path: String,
+    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+) -> Result<(), ()> {
+    let _ = state.lock().await.remove_shared_dir(path.clone()).await;
+    let _ = state.lock().await.save_config().await;
+
     Ok(())
 }
 
@@ -122,34 +135,32 @@ async fn request_dir(
     Ok(())
 }
 
-#[derive(serde::Serialize)]
-#[allow(dead_code)]
-struct DisplayApp {
-    address: String,
-    destination: String,
-    id: String,
-    nickname: String,
-    shared_directories: Vec<String>,
-}
+// #[derive(serde::Serialize)]
+// #[allow(dead_code)]
+// struct DisplayApp {
+//     address: String,
+//     destination: String,
+//     id: String,
+//     nickname: String,
+//     shared_directories: Vec<String>,
+// }
 
 #[tauri::command]
-async fn app_state(
-    state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
-) -> Result<DisplayApp, ()> {
+async fn app_state(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<Config, ()> {
     let app = state.lock().await;
-    let c = app.config.lock().await;
-    let a = DisplayApp {
-        address: c.address.to_string(),
-        destination: c.destination.to_str().unwrap().to_string(),
-        id: c.id.clone(),
-        nickname: c.nickname.clone(),
-        shared_directories: c
-            .shared_directories
-            .iter()
-            .map(|f| f.name.clone())
-            .collect(),
-    };
-    Ok(a)
+    let c = app.config.lock().await.clone();
+    // let a = DisplayApp {
+    //     address: c.address.to_string(),
+    //     destination: c.destination.to_str().unwrap().to_string(),
+    //     id: c.id.clone(),
+    //     nickname: c.nickname.clone(),
+    //     shared_directories: c
+    //         .shared_directories
+    //         .iter()
+    //         .map(|f| f.name.clone())
+    //         .collect(),
+    // };
+    Ok(c)
 }
 
 #[tauri::command]
@@ -348,6 +359,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     update_destination,
                     broadcast,
                     add_shared_dir,
+                    remove_shared_dir,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");

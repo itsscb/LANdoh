@@ -11,13 +11,13 @@ export class AppComponent implements OnInit {
 
     darkMode = true;
 
-    menuColorMode = 'light';
+    menuColorMode = 'dark';
 
-    menuColor = 'layout-menu-light';
+    menuColor = 'layout-menu-dark';
 
-    themeColor = 'blue';
+    themeColor = 'green';
 
-    layoutColor = 'blue';
+    layoutColor = 'green';
 
     ripple = true;
 

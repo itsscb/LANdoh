@@ -173,8 +173,8 @@ export class AppConfigComponent implements OnInit {
             {name: 'Indigo', file: 'indigo', image: 'indigo.svg'},
         ];
         this.darkColors = [
-            {name: 'Blue', file: 'blue', image: 'blue.svg'},
             {name: 'Green', file: 'green', image: 'green.svg'},
+            {name: 'Blue', file: 'blue', image: 'blue.svg'},
             {name: 'Yellow', file: 'yellow', image: 'yellow.svg'},
             {name: 'Cyan', file: 'cyan', image: 'cyan.svg'},
             {name: 'Purple', file: 'purple', image: 'purple.svg'},
@@ -232,7 +232,7 @@ export class AppConfigComponent implements OnInit {
             {name: 'custom'},
             {name: 'dark'}
         ];
-        this.selectedColorOptions = this.lightColors;
+        this.selectedColorOptions = this.darkColors;
         this.componentThemes = [
             {name: 'Blue', file: 'blue', image: 'blue.svg'},
             {name: 'Green', file: 'green', image: 'green.svg'},
@@ -248,13 +248,13 @@ export class AppConfigComponent implements OnInit {
             {name: 'Indigo', file: 'indigo', image: 'indigo.svg'},
         ];
 
-        this.app.menuColorMode = 'dark';
-        this.app.menuColor = 'layout-menu-dark';
-        this.app.darkMode = true;
-        this.selectedColorOptions = this.darkColors;
-        this.app.layoutColor = this.selectedColorOptions[0].file;
-        this.changeLightDarkLayout('layout-css', this.selectedColorOptions[0].file, 'layout-dark');
-        this.changeLightDarkTheme('theme-css', 'theme-dark');
+        // this.app.menuColorMode = 'dark';
+        // this.app.menuColor = 'layout-menu-dark';
+        // this.app.darkMode = true;
+        // this.selectedColorOptions = this.darkColors;
+        // this.app.layoutColor = this.selectedColorOptions[0].file;
+        // this.changeLightDarkLayout('layout-css', this.selectedColorOptions[0].file, 'layout-dark');
+        // this.changeLightDarkTheme('theme-css', 'theme-dark');
 
     }
 

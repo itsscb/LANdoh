@@ -28,12 +28,12 @@ export class AppHomeComponent implements OnInit {
 
   app_state() {
     invoke('app_state').then((s) => {
+      console.log('raw:',s);
       this.apps = [s as App];
       this.app = structuredClone(s as App);
       // this.app.shared_directories = this.app.shared_directories as SharedDirectory[];
       console.log(this.app);
     })
-    console.log(this.app);
   }
 
   update_nickname(nick: string) {
@@ -55,6 +55,11 @@ export class AppHomeComponent implements OnInit {
     })
     invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => this.app_state());
   }
+
+  async remove_shared_dir(name: string) {
+    invoke('remove_shared_dir', {path: name, window: appWindow}).then(() => this.app_state());
+  }
+
 
   listen_for() {
     if (!this.listening) {

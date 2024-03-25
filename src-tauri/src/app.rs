@@ -51,8 +51,11 @@ fn save_config(config: &Config) -> Result<(), Box<dyn Error>> {
 
     fs::create_dir_all(path.parent().unwrap())?;
 
+    fs::remove_file(&path)?;
+
     let mut file = f.write(true).create(true).open(&path)?;
-    let payload = toml::to_string_pretty(&config)?;
+
+    let payload = serde_json::to_string_pretty(&config)?;
     file.write_all(payload.as_bytes())?;
 
     Ok(())
@@ -129,7 +132,7 @@ impl App {
                     let mut f = File::open(path)?;
                     let mut s: String = "".to_string();
                     let _ = f.read_to_string(&mut s)?;
-                    let c: Config = toml::from_str::<Config>(&s)?;
+                    let c: Config = serde_json::from_str::<Config>(&s)?;
                     return Ok(Self::new(c));
                 }
                 false => {
@@ -211,6 +214,7 @@ impl App {
         name: String,
         paths: Vec<String>,
     ) -> Result<(), Box<dyn Error>> {
+        let mut na = name;
         let mut existing_paths = vec![];
 
         for pa in paths {
@@ -220,8 +224,16 @@ impl App {
             }
         }
 
+        let p = PathBuf::from(&na);
+        if p.exists() && p.is_dir() {
+            na = match p.file_name() {
+                Some(n) => n.to_str().unwrap().to_string(),
+                None => na,
+            }
+        }
+
         let dir = Directory {
-            name: name.to_string(),
+            name: na,
             paths: existing_paths,
         };
 

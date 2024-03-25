@@ -8,18 +8,13 @@
   },
   "package": {
     "productName": "LANdoh",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "tauri": {
     "allowlist": {
       "all": false,
       "dialog": {
-        "all": true,
-        "ask": true,
-        "confirm": true,
-        "message": true,
-        "open": true,
-        "save": true
+        "open": true
       }
     },
     "bundle": {
@@ -64,10 +59,10 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
+        "height": 800,
         "resizable": true,
         "title": "LANdoh",
-        "width": 800
+        "width": 850
       }
     ]
   }

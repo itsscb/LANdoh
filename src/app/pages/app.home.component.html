@@ -1,7 +1,7 @@
-<div class="app-body" [ngClass]="{'layout-dark': dark}" style="min-height: 100%;">
+<div class="app-body" [ngClass]="{'layout-dark': dark}" style="min-width: 40rem;">
 
     <div class="card">
-        <p-table [value]="apps" [tableStyle]="{ 'min-width': '50rem' }">
+        <p-table [value]="apps">
             <ng-template pTemplate="header">
                 <tr>
                     <th>Nickname</th>
@@ -16,28 +16,42 @@
             </ng-template>
         </p-table>
         <p-accordion [activeIndex]="-1">
-            <p-accordionTab header="My shared directories">
-                <p-table [value]="this.app?.shared_directories" sortField="name" sortMode="single" dataKey="name" rowGroupMode="subheader"
-                groupRowsBy="name" [tableStyle]="{'min-width': '40rem'}">
-                <!-- <ng-template pTemplate="caption">
-                    <div class="flex align-items-center justify-content-between">
-                        Found Shares
-                        <p-button icon="pi pi-sync" severity="info" [hidden]="!this.app.shared_directories"></p-button>
-                    </div>
-                </ng-template> -->
+            <p-accordionTab>
                 <ng-template pTemplate="header">
-                    <tr>
-                        <th>Path</th>
-                        <th></th>
-                    </tr>
+                    <span class="flex align-items-center gap-2 w-full">
+                        <span class="font-bold white-space-nowrap">Shared Directories ({{app.shared_directories.length }})</span>
+                        <p-button class="ml-auto" icon="pi pi-plus" (click)="this.add_shared_dir()" [rounded]="true" severity="success" [outlined]="false"></p-button>
+                    </span>
                 </ng-template>
-                <ng-template pTemplate="rowexpansion" let-dir>
+
+            <p-table [value]="app.shared_directories">
+                <ng-template pTemplate="body" let-dir>
                     <tr>
                         <td>
-                            {{dir.name}}
-                        </td>
-                        <td>
-                            <p-button icon="pi pi-times" [rounded]="true" severity="danger" [outlined]="true"></p-button>                        
+                            <p-accordion [activeIndex]="-1">
+                                <p-accordionTab>
+                                    <ng-template pTemplate="header">
+                                        <span class="flex align-items-center gap-2 w-full">
+                                            <span class="font-bold white-space-nowrap">{{dir.name}}</span>
+                                            <p-button class="ml-auto" icon="pi pi-times" (click)="this.remove_shared_dir(dir.name)" [rounded]="true" severity="danger" [outlined]="false"></p-button>
+                                        </span>
+                                    </ng-template>
+                    
+                                <p-table [value]="dir.paths">
+                                    <ng-template pTemplate="body" let-path>
+                                        <tr>
+                                            <td>{{ path }}</td>
+                                        </tr>
+                                    </ng-template>
+                                    <ng-template pTemplate="summary">
+                                        <div class="flex align-items-right justify-content-between"  *ngIf="dir.paths.length < 1">
+                                        Nothing shared.
+                                        </div>
+                                    </ng-template>
+                                </p-table>
+                            </p-accordionTab>
+                        </p-accordion>
+                    
                         </td>
                     </tr>
                 </ng-template>
@@ -45,12 +59,8 @@
                     <div class="flex align-items-right justify-content-between"  *ngIf="this.app.shared_directories.length < 1">
                     Nothing shared.
                     </div>
-                    <div>
-                        <p-button icon="pi pi-plus" (click)="this.add_shared_dir()" [rounded]="true" severity="success" [outlined]="false"></p-button>
-                    </div>
                 </ng-template>
             </p-table>
-            
         </p-accordionTab>
     </p-accordion>
     </div>

@@ -6,8 +6,8 @@ import { AppConfig } from '../domain/appconfig';
 export class ConfigService {
 
     config: AppConfig = {
-        theme: 'lara-light-indigo',
-        dark: false,
+        theme: 'lara-dark-green',
+        dark: true,
         inputStyle: 'outlined',
         ripple: true
     };

@@ -1,0 +1,122 @@
+<div class="app-body" [ngClass]="{'layout-dark': dark}" style="min-width: 40rem;">
+
+    <div class="card">
+        <p-table [value]="apps">
+            <ng-template pTemplate="header">
+                <tr>
+                    <th>Nickname</th>
+                    <th>Destination</th>
+                </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-a>
+                <tr>
+                    <td><input type="text" pInputText [(ngModel)]="a.nickname" /> <p-button [disabled]="a.nickname == app.nickname" (click)="this.update_nickname(a.nickname)" icon="pi pi-check"></p-button></td>
+                    <td><input type="text" disabled pInputText [(ngModel)]="a.destination" /><p-button type="text" (click)="this.update_destination()" label="Select"></p-button></td>
+                </tr>
+            </ng-template>
+        </p-table>
+        <p-accordion [activeIndex]="-1">
+            <p-accordionTab>
+                <ng-template pTemplate="header">
+                    <span class="flex align-items-center gap-2 w-full">
+                        <span class="font-bold white-space-nowrap">Shared Directories ({{app.shared_directories.length }})</span>
+                        <p-button class="ml-auto" icon="pi pi-plus" (click)="this.add_shared_dir()" [rounded]="true" severity="success" [outlined]="false"></p-button>
+                    </span>
+                </ng-template>
+
+            <p-table [value]="app.shared_directories">
+                <ng-template pTemplate="body" let-dir>
+                    <tr>
+                        <td>
+                            <p-accordion [activeIndex]="-1">
+                                <p-accordionTab>
+                                    <ng-template pTemplate="header">
+                                        <span class="flex align-items-center gap-2 w-full">
+                                            <span class="font-bold white-space-nowrap">{{dir.name}}</span>
+                                            <p-button class="ml-auto" icon="pi pi-times" (click)="this.remove_shared_dir(dir.name)" [rounded]="true" severity="danger" [outlined]="false"></p-button>
+                                        </span>
+                                    </ng-template>
+                    
+                                <p-table [value]="dir.paths">
+                                    <ng-template pTemplate="body" let-path>
+                                        <tr>
+                                            <td>{{ path }}</td>
+                                        </tr>
+                                    </ng-template>
+                                    <ng-template pTemplate="summary">
+                                        <div class="flex align-items-right justify-content-between"  *ngIf="dir.paths.length < 1">
+                                        Nothing shared.
+                                        </div>
+                                    </ng-template>
+                                </p-table>
+                            </p-accordionTab>
+                        </p-accordion>
+                    
+                        </td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="summary">
+                    <div class="flex align-items-right justify-content-between"  *ngIf="this.app.shared_directories.length < 1">
+                    Nothing shared.
+                    </div>
+                </ng-template>
+            </p-table>
+        </p-accordionTab>
+    </p-accordion>
+    </div>
+
+
+        <div class="card">
+            <p-table [value]="sources" sortField="name" sortMode="single" dataKey="name" rowGroupMode="subheader"
+                groupRowsBy="name" [tableStyle]="{'min-width': '40rem'}">
+                <ng-template pTemplate="caption">
+                    <div class="flex align-items-center justify-content-between">
+                        Found Shares
+                        <p-button icon="pi pi-sync" severity="info" [hidden]="!this.new_sources" (click)="update_sources()"></p-button>
+                    </div>
+                </ng-template>
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th>Name</th>
+                        <th>Nickname</th>
+                        <th>ID</th>
+                        <th>IP</th>
+                        <th></th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="groupheader" let-source let-rowIndex="rowIndex" let-expanded="expanded">
+                    <tr>
+                        <td colspan="5">
+                            <button type="button" pButton pRipple [pRowToggler]="source"
+                                class="p-button-text p-button-rounded p-button-plain mr-2"
+                                [icon]="expanded ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></button>
+                            <span class="font-bold ml-2">{{source.name}}</span>
+                        </td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="rowexpansion" let-source>
+                    <tr>
+                        <td>
+                        </td>
+                        <td>
+                            {{source.nickname}}
+                        </td>
+                        <td>
+                            {{source.id}}
+                        </td>
+                        <td>
+                            {{source.ip}}
+                        </td>
+                        <td>
+                            <button (click)="request_dir(source.id, source.name)">Download</button>
+                        </td>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="summary">
+                    <div class="flex align-items-center justify-content-between"  *ngIf="!this.sources">
+                        Nothing to see here.
+                    </div>
+                </ng-template>
+            </p-table>
+        </div>
+</div>

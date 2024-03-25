@@ -1,0 +1,57 @@
+[package]
+name = "landoh"
+version = "0.3.0"
+description = "LAN distributor of hell"
+authors = ["itsscb"]
+license = "MIT"
+repository = "github.com/itsscb/LANdoh"
+default-run = "landoh"
+edition = "2021"
+rust-version = "1.60"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tauri = { version = "1.6.0", features = [ "dialog-open"] }
+
+tonic = "0.11.0"
+tonic-reflection = "0.11.0"
+prost = "0.12.3"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio-stream = "0.1"
+
+walkdir = "2"
+
+ring = "0.17.8"
+data-encoding = "2.5.0"
+
+socket2 = { version = "0.5.6" }
+
+serde = {version = "1.0.197", features = ["derive", "rc"] }
+serde_json = "1.0.114"
+toml = "0.8.11"
+
+clap = { version = "4.5.2", features = ["derive"] }
+
+log = "0.4.21"
+env_logger = "0.11.3"
+
+[dependencies.uuid]
+version = "1.7.0"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+]
+
+[build-dependencies]
+tauri-build = { version = "1.5.1", features = [] }
+
+tonic-build = "0.11.0"
+walkdir = "2"
+
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
+# If you use cargo directly instead of tauri's cli you can use this feature flag to switch between tauri's `dev` and `build` modes.
+# DO NOT REMOVE!!
+custom-protocol = [ "tauri/custom-protocol" ]

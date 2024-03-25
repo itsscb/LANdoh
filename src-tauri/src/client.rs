@@ -77,6 +77,10 @@ impl Client {
         let path = path.clone();
         let parent = path.parent().unwrap();
 
+        // TODO:
+        // Convert absolute path to relative path
+        // before creating dir tree and saving files
+
         fs::create_dir_all(&parent)?;
 
         let mut dest_file = dest_file.create(true).open(&path)?;

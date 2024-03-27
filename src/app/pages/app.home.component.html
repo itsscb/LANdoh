@@ -1,4 +1,5 @@
 <div class="app-body" [ngClass]="{'layout-dark': dark}" style="min-width: 40rem;">
+    <p-toast [life]="2000"></p-toast>
 
     <div class="card">
         <p-table [value]="apps">
@@ -15,7 +16,6 @@
                         <input type="text" disabled pInputText [(ngModel)]="a.destination" />
                         <p-button class="ml-3" icon="pi pi-folder" (click)="this.update_destination()" severity="danger" [rounded]="true" [outlined]="false"></p-button>
                         <p-button class="ml-2" icon="pi pi-folder-open" (click)="this.open_dir(a.destination)" [rounded]="true" severity="info" [outlined]="false"></p-button>
-
                     </td>
                 </tr>
             </ng-template>

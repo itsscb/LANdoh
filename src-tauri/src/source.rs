@@ -7,7 +7,6 @@ pub struct Source {
 }
 
 impl Source {
-    #[allow(dead_code)]
     pub fn new(
         id: String,
         nickname: String,

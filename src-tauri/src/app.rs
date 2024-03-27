@@ -160,25 +160,27 @@ impl App {
     }
 
     pub async fn broadcast(&mut self) {
-        let id = self.config.lock().await.id.clone();
-        let nickname = self.config.lock().await.nickname.clone();
         let s = Arc::clone(&self.sender);
-        // let a = Arc::new(self.config.lock().await.shared_directories);
         let dirs = Arc::clone(&self.config);
-        self.handles.spawn(async move {
+        tokio::spawn(async move {
             loop {
-                thread::sleep(Duration::from_secs(30));
-                let _ = s.lock().await.send(Source::new(
-                    id.to_string(),
-                    nickname.to_string(),
-                    None,
-                    dirs.lock()
-                        .await
-                        .shared_directories
-                        .iter()
-                        .map(|d| d.name.clone())
-                        .collect(),
-                ));
+                {
+                    let c = dirs.lock().await;
+                    let d = Source::new(
+                        c.id.to_string().clone(),
+                        c.nickname.to_string().clone(),
+                        None,
+                        c.shared_directories
+                            // .lock()
+                            // .await
+                            .clone()
+                            .iter()
+                            .map(|d| d.name.clone())
+                            .collect(),
+                    );
+                    let _ = s.lock().await.send(d).await;
+                }
+                thread::sleep(Duration::from_secs(5));
             }
         });
     }
@@ -189,7 +191,8 @@ impl App {
 
     pub async fn serve(&mut self) {
         let s = self.config.lock().await;
-        let server = Server::new(s.shared_directories.clone());
+        let c = Arc::clone(&self.config);
+        let server = Server::new(c);
         let addr = s.address;
         let _ = env_logger::try_init();
 
@@ -208,7 +211,6 @@ impl App {
         while let Some(_) = self.handles.join_next().await {}
     }
 
-    #[allow(dead_code)]
     pub async fn add_shared_dir(
         &mut self,
         name: String,
@@ -216,6 +218,17 @@ impl App {
     ) -> Result<(), Box<dyn Error>> {
         let mut na = name;
         let mut existing_paths = vec![];
+
+        if self
+            .config
+            .lock()
+            .await
+            .shared_directories
+            .iter()
+            .any(|d| d.name == na)
+        {
+            return Ok(());
+        }
 
         for pa in paths {
             let p = PathBuf::from(&pa);
@@ -237,35 +250,42 @@ impl App {
             paths: existing_paths,
         };
 
-        let _ = &self
-            .config
-            .lock()
-            .await
-            .shared_directories
-            .push(dir.clone());
+        {
+            let _ = &self
+                .config
+                .lock()
+                .await
+                .shared_directories
+                // .lock()
+                // .await
+                .push(dir.clone());
+        }
+        {
+            let c = self.config.lock().await;
 
-        let c = self.config.lock().await;
-
-        self.publish(Source::new(
-            c.id.to_string(),
-            c.nickname.clone(),
-            None,
-            c.shared_directories
-                .iter()
-                .map(|i| i.name.clone())
-                .collect(),
-        ))
-        .await?;
-
+            self.publish(Source::new(
+                c.id.to_string(),
+                c.nickname.clone(),
+                None,
+                c.shared_directories
+                    // .lock()
+                    // .await
+                    .iter()
+                    .map(|i| i.name.clone())
+                    .collect(),
+            ))
+            .await?;
+        }
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn remove_shared_dir(&mut self, name: String) {
         self.config
             .lock()
             .await
             .shared_directories
+            // .lock()
+            // .await
             .retain(|d| d.name != name);
     }
 }

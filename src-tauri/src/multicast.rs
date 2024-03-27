@@ -18,7 +18,6 @@ pub struct Sender {
     addr: SocketAddr,
 }
 impl Sender {
-    #[allow(dead_code)]
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let ipv4: IpAddr = Ipv4Addr::new(224, 0, 0, 123).into();
         let addr = SocketAddr::new(ipv4, PORT);
@@ -40,7 +39,6 @@ impl Sender {
         })
     }
 
-    #[allow(dead_code)]
     pub async fn send<T: Serialize>(&self, data: T) -> Result<(), Box<dyn Error>> {
         let payload = serde_json::to_string(&data)?;
 
@@ -64,11 +62,10 @@ pub mod receiver {
 
     use tokio::sync::Mutex;
 
+    use log::error;
+
     pub use crate::source::Source;
 
-    use log::info;
-
-    #[allow(dead_code)]
     pub async fn listen(
         id: String,
         sources: Arc<Mutex<Vec<Source>>>,
@@ -87,7 +84,6 @@ pub mod receiver {
             let mut buf = [0u8; 1024];
             match listener.recv_from(&mut buf) {
                 Ok((len, remote_addr)) => {
-                    info!("msg from: {:?}", remote_addr);
                     if remote_addr.to_string() == id {
                         ()
                     }
@@ -120,7 +116,7 @@ pub mod receiver {
                             };
                         }
                         Err(err) => {
-                            println!("{}", err);
+                            error!("{}", err);
                         }
                     }
                 }
@@ -132,7 +128,6 @@ pub mod receiver {
     }
 
     #[cfg(windows)]
-    #[allow(dead_code)]
 
     fn bind_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
         let addr = SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port());
@@ -140,7 +135,6 @@ pub mod receiver {
     }
 
     #[cfg(unix)]
-    #[allow(dead_code)]
 
     fn bind_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
         socket.bind(&socket2::SockAddr::from(*addr))

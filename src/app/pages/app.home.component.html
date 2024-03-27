@@ -79,12 +79,12 @@
                     <tr>
                         <th>Name</th>
                         <th>Nickname</th>
-                        <th>ID</th>
+                        <!-- <th>ID</th> -->
                         <th>IP</th>
                         <th></th>
                     </tr>
                 </ng-template>
-                <ng-template pTemplate="groupheader" let-source let-rowIndex="rowIndex" let-expanded="expanded">
+                <!-- <ng-template pTemplate="groupheader" let-source let-rowIndex="rowIndex" let-expanded="expanded">
                     <tr>
                         <td colspan="5">
                             <button type="button" pButton pRipple [pRowToggler]="source"
@@ -93,17 +93,18 @@
                             <span class="font-bold ml-2">{{source.name}}</span>
                         </td>
                     </tr>
-                </ng-template>
-                <ng-template pTemplate="rowexpansion" let-source>
+                </ng-template> -->
+                <ng-template pTemplate="body" let-source>
                     <tr>
                         <td>
+                            {{source.name}}
                         </td>
-                        <td>
+                        <td [pTooltip]="source.id">
                             {{source.nickname}}
                         </td>
-                        <td>
+                        <!-- <td>
                             {{source.id}}
-                        </td>
+                        </td> -->
                         <td>
                             {{source.ip}}
                         </td>

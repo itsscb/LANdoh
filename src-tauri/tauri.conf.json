@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "LANdoh",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "tauri": {
     "allowlist": {
@@ -19,8 +19,8 @@
     },
     "bundle": {
       "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
+      "category": "Utility",
+      "copyright": "Copyright 2024 itsscb. All rights reserved.",
       "deb": {
         "depends": []
       },

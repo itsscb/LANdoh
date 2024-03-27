@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use std::{error::Error, fs::File, io::Read, net::SocketAddr, path::PathBuf, pin::Pin};
 
 use data_encoding::HEXUPPER;
+use log::{error, warn};
 use ring::digest::{Context, SHA256};
 
 use walkdir::WalkDir;
@@ -10,7 +12,8 @@ use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{transport::Server as tServer, Status};
 use tonic::{Request, Response};
 
-use crate::model::{contains_partial_path, CHUNK_SIZE};
+use crate::app::Config;
+use crate::model::CHUNK_SIZE;
 
 use crate::pb::{
     get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, FileMetaData,
@@ -19,28 +22,25 @@ use crate::pb::{
 };
 
 pub use crate::pb::Directory;
+use crate::shorten_path;
 
 mod pb_proto {
     include!("pb.rs");
-    #[allow(dead_code)]
+
     pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
         tonic::include_file_descriptor_set!("pb_descriptor");
 }
 
 #[derive(Debug)]
 pub struct Server {
-    directories: Vec<Directory>,
+    config: Arc<tokio::sync::Mutex<Config>>,
 }
 
 impl Server {
-    #[allow(dead_code)]
-    pub fn new(directories: Vec<Directory>) -> Self {
-        Server {
-            directories: directories,
-        }
+    pub fn new(config: Arc<tokio::sync::Mutex<Config>>) -> Self {
+        Server { config }
     }
 
-    #[allow(dead_code)]
     pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn Error>> {
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(pb_proto::FILE_DESCRIPTOR_SET)
@@ -56,7 +56,14 @@ impl Server {
     }
 
     pub async fn get_dir(&self, name: &String) -> Option<Directory> {
-        match self.directories.iter().find(|d| &d.name == name) {
+        match self
+            .config
+            .lock()
+            .await
+            .shared_directories
+            .iter()
+            .find(|d| &d.name == name)
+        {
             Some(d) => Some(d.clone()),
             None => None,
         }
@@ -71,7 +78,21 @@ impl LanDoh for Server {
         _request: Request<ListDirectoriesRequest>,
     ) -> Result<Response<ListDirectoriesResponse>, Status> {
         Ok(Response::new(ListDirectoriesResponse {
-            dirs: self.directories.iter().map(|d| d.clone()).collect(),
+            dirs: self
+                .config
+                .lock()
+                .await
+                .shared_directories
+                .iter()
+                .map(|d| Directory {
+                    name: d.name.clone(),
+                    paths: d
+                        .paths
+                        .iter()
+                        .map(|p| shorten_path(d.name.clone(), p.clone()))
+                        .collect(),
+                })
+                .collect(),
         }))
     }
 
@@ -84,8 +105,9 @@ impl LanDoh for Server {
         let dir_res = self.get_dir(&r.name).await;
 
         if dir_res == None {
+            warn!("{:?} / {:?}", r, self);
             return Err(Status::invalid_argument(format!(
-                "invalid item: {}",
+                "GetDir: invalid item: {}",
                 r.name
             )));
         }
@@ -106,10 +128,12 @@ impl LanDoh for Server {
                     continue;
                 }
 
+                let p = shorten_path(dir.name.clone(), String::from(e.path().to_str().unwrap()));
+
                 files.push(FileMetaData {
                     file_size: m.len(),
                     hash: "none".to_string(),
-                    path: String::from(e.path().to_str().unwrap()),
+                    path: p,
                 });
             }
         });
@@ -123,13 +147,27 @@ impl LanDoh for Server {
     ) -> Result<Response<Self::GetFileStream>, Status> {
         let r = request.into_inner();
 
-        let path = PathBuf::from(r.path.clone());
+        let mut path = PathBuf::from(r.path.clone());
+
+        let dir_name: PathBuf = path.iter().take(1).collect();
 
         let mut shared_dir = false;
-        for d in self.directories.iter() {
-            if contains_partial_path(path.to_str(), &d.paths) {
-                shared_dir = true;
-            }
+
+        {
+            self.config
+                .lock()
+                .await
+                .shared_directories
+                .iter()
+                .for_each(|d| {
+                    if d.name == dir_name.to_str().unwrap().to_string() {
+                        shared_dir = true;
+                        path = PathBuf::from(d.paths[0].clone())
+                            .parent()
+                            .unwrap()
+                            .join(&path);
+                    }
+                });
         }
 
         if !shared_dir {
@@ -152,7 +190,7 @@ impl LanDoh for Server {
         ) = mpsc::channel(128);
 
         tokio::spawn(async move {
-            send_file(r.path.as_str(), tx).await;
+            send_file(&path.to_str().unwrap(), tx).await;
         });
 
         let output_stream: ReceiverStream<Result<GetFileResponse, Status>> =
@@ -166,6 +204,7 @@ pub async fn send_file(path: &str, tx: Sender<Result<GetFileResponse, Status>>) 
     let mut reader: File = match File::open(&path) {
         Ok(f) => f,
         Err(err) => {
+            error!("{:?}: {:?}", &path, err);
             let e = Err(Status::internal(format!(
                 "ERROR: failed to open file: {:?}",
                 err

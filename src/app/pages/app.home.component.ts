@@ -53,7 +53,18 @@ export class AppHomeComponent implements OnInit {
       multiple: false,
       directory: true,
     })
-    invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => this.app_state());
+
+    let exists = false;
+    this.app.shared_directories.filter((d) => {
+      d.paths.filter((p) => {
+        if (p == selected) {
+          exists = true;
+        }
+    })});
+    
+    if (!exists) {
+      invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => this.app_state());
+    }
   }
 
   async remove_shared_dir(name: string) {
@@ -86,13 +97,14 @@ export class AppHomeComponent implements OnInit {
   }
 
   request_dir(id: string, name: string) {
-    console.log("clicked: request_dir(", id, name, ")");
+    console.log("clicked request_dir:", id, name);
     invoke("request_dir", { id: id, dir: name });
   }
 
  async watch() {
     await listen('sources', (event) => {
       this.new_sources = [...event.payload as Directory[]];
+      this.app_state();
       // this.toastService.add({
       //   severity: 'success', summary: 'Some new Directories were shared',
       // });

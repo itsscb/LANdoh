@@ -15,6 +15,8 @@ use super::pb::{
     GetFileRequest, ListDirectoriesRequest,
 };
 
+use log::{error, info};
+
 pub struct Client {
     share_path: String,
 }
@@ -40,7 +42,7 @@ impl Client {
                 match c.get_file(a.to_string(), f).await {
                     Ok(_) => {}
                     Err(err) => {
-                        println!("{:?}", err);
+                        error!("{:?}", err);
                     }
                 };
             }));
@@ -54,7 +56,7 @@ impl Client {
     }
 
     pub async fn get_file(&self, addr: String, file: FileMetaData) -> Result<(), Box<dyn Error>> {
-        println!("requesting '{}' from {}", &file.path, &addr);
+        info!("requesting '{}' from {}", &file.path, &addr);
         let mut client = lan_doh_client::LanDohClient::connect(addr).await?;
 
         let tmp_path = file.path.clone();
@@ -76,6 +78,10 @@ impl Client {
         let mut written: u64 = 0;
         let path = path.clone();
         let parent = path.parent().unwrap();
+
+        // TODO:
+        // Convert absolute path to relative path
+        // before creating dir tree and saving files
 
         fs::create_dir_all(&parent)?;
 
@@ -110,14 +116,14 @@ impl Client {
                     }
                 }
                 Err(err) => {
-                    println!("{:?}", err);
+                    error!("{:?}", err);
                 }
             }
         }
 
         let hash = HEXUPPER.encode(context.finish().as_ref());
 
-        println!(
+        info!(
             "file: {:?}, received: {:?}, valid: {:?}",
             path,
             written,
@@ -126,18 +132,13 @@ impl Client {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub async fn list_directories(&self, addr: String) -> Result<(), Box<dyn Error>> {
         let mut client = lan_doh_client::LanDohClient::connect(addr).await?;
-        let response = client
+        let _ = client
             .list_directories(tonic::Request::new(ListDirectoriesRequest {}))
             .await
             .unwrap()
             .into_inner();
-
-        for d in response.dirs {
-            println!("GOT DIR: {:?}", d);
-        }
 
         Ok(())
     }
@@ -147,10 +148,6 @@ impl Client {
         name: String,
         addr: String,
     ) -> Result<Vec<FileMetaData>, Box<dyn Error>> {
-        println!(
-            "LANdoh::get_directory::{:?}::{} (CLIENT / CONNECTING)",
-            &addr, &name
-        );
         let mut client = lan_doh_client::LanDohClient::connect(addr).await?;
 
         let message = GetDirectoryRequest { name: name };
@@ -159,13 +156,11 @@ impl Client {
 
         let response = client.get_directory(request).await.unwrap().into_inner();
 
-        println!("file: {:?}", response.files);
-
         Ok(response.files)
     }
 }
 
-// #[allow(dead_code)]
+//
 // #[tokio::main]
 // async fn main() -> Result<(), Box<dyn Error>> {
 //     use clap::{Parser, Subcommand};

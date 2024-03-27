@@ -114,52 +114,25 @@ async fn request_dir(
         addr.push_str(&ip);
         addr.push_str(":9001");
 
-        let dest = a
-            .lock()
-            .await
-            .config
-            .lock()
-            .await
-            .destination
-            .to_str()
-            .unwrap()
-            .to_string();
+        let dest = a.lock().await.config.lock().await.destination.clone();
 
-        let c = Arc::new(Client::new(dest));
+        let c = Arc::new(Client::new(dest.to_str().unwrap().to_string()));
 
         info!("REQUESTING: {} from {:?}", dir, addr);
 
-        let files = c.get_directory(dir, addr.to_string()).await.unwrap();
+        let files = c
+            .get_directory(dir.clone(), addr.to_string())
+            .await
+            .unwrap();
         c.get_all_files(addr.to_string(), files).await.unwrap();
     });
     Ok(())
 }
 
-// #[derive(serde::Serialize)]
-// #[allow(dead_code)]
-// struct DisplayApp {
-//     address: String,
-//     destination: String,
-//     id: String,
-//     nickname: String,
-//     shared_directories: Vec<String>,
-// }
-
 #[tauri::command]
 async fn app_state(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<Config, ()> {
     let app = state.lock().await;
     let c = app.config.lock().await.clone();
-    // let a = DisplayApp {
-    //     address: c.address.to_string(),
-    //     destination: c.destination.to_str().unwrap().to_string(),
-    //     id: c.id.clone(),
-    //     nickname: c.nickname.clone(),
-    //     shared_directories: c
-    //         .shared_directories
-    //         .iter()
-    //         .map(|f| f.name.clone())
-    //         .collect(),
-    // };
     Ok(c)
 }
 
@@ -185,7 +158,6 @@ async fn listen_for(
                     })
                 });
 
-                println!("got update: {:?}", &payload);
                 let err = window.emit_all("sources", payload);
                 match err {
                     Ok(_) => {}

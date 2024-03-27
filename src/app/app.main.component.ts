@@ -1,5 +1,4 @@
 import { Component, Renderer2 } from '@angular/core';
-import { MenuService } from './app.menu.service';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { PrimeNGConfig } from 'primeng/api';
 import {AppComponent} from './app.component';
@@ -55,7 +54,7 @@ export class AppMainComponent {
 
     configActive: boolean;
 
-    constructor(public renderer: Renderer2, private menuService: MenuService,
+    constructor(public renderer: Renderer2, 
                 private primengConfig: PrimeNGConfig, public app: AppComponent) {}
 
     onLayoutClick() {
@@ -77,9 +76,6 @@ export class AppMainComponent {
         }
 
         if (!this.menuClick) {
-            if (this.isHorizontal()) {
-                this.menuService.reset();
-            }
 
             if (this.menuMobileActive) {
                 this.menuMobileActive = false;

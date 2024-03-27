@@ -3,7 +3,7 @@
 import { MessageService } from 'primeng/api';
 
 import { Component, OnInit } from '@angular/core';
-
+import { Table } from 'primeng/table';
 
 import { invoke } from '@tauri-apps/api';
 import { open } from '@tauri-apps/api/dialog';

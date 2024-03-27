@@ -1,0 +1,13 @@
+  .shake {
+    animation:  shake-animation 2s;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes shake-animation {
+    25% {
+        transform: rotate(375deg);
+    }
+    75% {
+        transform: rotate(-20deg);
+    }
+  }

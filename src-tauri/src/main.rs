@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::PathBuf;
+use std::process::Command;
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 use landoh::client::Client;
@@ -20,6 +21,12 @@ struct Payload {
     id: String,
     nickname: String,
     ip: Option<String>,
+}
+
+#[tauri::command]
+async fn open_dir(path: String) -> Result<(),()> {
+    let _ = Command::new("explorer").arg(path).spawn();
+    Ok(())
 }
 
 #[tauri::command]
@@ -331,6 +338,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     broadcast,
                     add_shared_dir,
                     remove_shared_dir,
+                    open_dir,
                 ])
                 .run(tauri::generate_context!())
                 .expect("error while running tauri application");

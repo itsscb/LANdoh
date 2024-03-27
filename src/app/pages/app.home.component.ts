@@ -36,6 +36,10 @@ export class AppHomeComponent implements OnInit {
     })
   }
 
+  open_dir(path: string) {
+    invoke('open_dir', {path: path});
+  }
+
   update_nickname(nick: string) {
     invoke('update_nickname', {nickname: nick, window: appWindow}).then(() => this.app_state());
   }

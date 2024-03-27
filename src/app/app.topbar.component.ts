@@ -16,7 +16,7 @@ import {AppMainComponent} from './app.main.component';
 					<div style="display: flex; flex-grow: 1;">
 						<a href="#" style="display: flex; align-items:center;">
 							<img src="assets/logo.png" alt="landoh-layout" style="width: 4rem;"/>
-							<span style="font-size: 22.5px; color: #d8dee9; margin-left: 10px;">LANdoh</span>
+							<span style="font-size: 22.5px; color: #d8dee9; margin-left: 10px;">LAN Distributor of Hell</span>
 						</a>
 					</div>
 

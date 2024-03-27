@@ -1,11 +1,8 @@
 // import { confirm } from '@tauri-apps/api/dialog';
 // import { homeDir } from '@tauri-apps/api/path';
-// import { MessageService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 
 import { Component, OnInit } from '@angular/core';
-
-import { TableModule } from 'primeng/table';
-import { AccordionModule } from 'primeng/accordion';
 
 
 import { invoke } from '@tauri-apps/api';
@@ -13,18 +10,17 @@ import { open } from '@tauri-apps/api/dialog';
 import { emit, listen } from '@tauri-apps/api/event'
 import { appWindow } from '@tauri-apps/api/window';
 
-import { SharedDirectory } from '../models/source';
 import { Directory } from '../models/directory';
-import { App } from '../models/app';
+import { App, Severity } from '../models/app';
 
 @Component({
   selector: 'app-home',
   templateUrl: './app.home.component.html',
   styleUrls: ['./app.home.component.css'],
-  // providers: [MessageService]
+  providers: [MessageService]
 })
 export class AppHomeComponent implements OnInit {
-  // constructor(private toastService: MessageService) {}
+  constructor(private toastService: MessageService) {}
 
   app_state() {
     invoke('app_state').then((s) => {
@@ -67,42 +63,50 @@ export class AppHomeComponent implements OnInit {
     })});
     
     if (!exists) {
-      invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => this.app_state());
+      invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => {
+        this.toast(Severity.success, 'Added: '+selected.toString())
+        this.app_state();
+      }).catch(() => this.toast(Severity.error, 'Error adding Dir'));
     }
   }
 
   async remove_shared_dir(name: string) {
-    invoke('remove_shared_dir', {path: name, window: appWindow}).then(() => this.app_state());
+    invoke('remove_shared_dir', {path: name, window: appWindow}).then(() => {
+      this.toast(Severity.success, 'Removed: '+name)
+      this.app_state();
+    }).catch(() => this.toast(Severity.error, 'Error removing Dir'));
   }
 
 
   listen_for() {
     if (!this.listening) {
-      console.log("clicked: listen()");
-      invoke('listen_for', { window: appWindow });
+      invoke('listen_for', { window: appWindow }).then(() => this.toast(Severity.info, 'Listening for shared directories')).catch(() => this.toast(Severity.error, 'Error starting Listener'));
       this.listening = true;
     }
   }
 
   serve() {
     if (!this.serving) {
-      console.log("clicked: serve()");
-      invoke('serve');
+      invoke('serve').then(() => this.toast(Severity.info, 'Serving shared directories')).catch(() => this.toast(Severity.error, 'Error starting Server'));
       this.serving = true;
     }
   }
 
   broadcast() {
     if(!this.broadcasting) {
-      console.log("broadcasting");
-      invoke("broadcast");
+      invoke("broadcast").then(() =>  this.toast(
+        Severity.info,
+        'Broadcasting shared directories',
+      )).catch(() => this.toast(Severity.error, 'Error starting Broadcaster'));
       this.broadcasting = true;
     }
   }
 
   request_dir(id: string, name: string) {
-    console.log("clicked request_dir:", id, name);
-    invoke("request_dir", { id: id, dir: name });
+    invoke("request_dir", { id: id, dir: name }).then(() =>  this.toast(
+      Severity.info,
+      'Requested Directory: ' + name + ' from ' + id,
+    )).catch(() => this.toast(Severity.error, 'Error requesting Directory: '+name + ' from ' + id));
   }
 
  async watch() {
@@ -114,6 +118,14 @@ export class AppHomeComponent implements OnInit {
       // });
     })
   }
+
+  toast(severity: Severity ,summary: string) {
+    console.log(severity.toString());
+    this.toastService.add({
+      severity: severity.toString(),
+      summary: summary
+    });
+  } 
 
   apps: App[];
   app: App;

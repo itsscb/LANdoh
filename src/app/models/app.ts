@@ -9,3 +9,10 @@ export class App {
     nickname: string
     shared_directories: Directory[]
 }
+
+export   enum Severity {
+    success = 'success',
+    info = 'info',
+    warn = 'warn',
+    error = 'error'
+  }

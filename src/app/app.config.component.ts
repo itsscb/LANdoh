@@ -2,8 +2,8 @@ import {Component, OnInit} from '@angular/core';
 import {animate, state, style, transition, trigger} from '@angular/animations';
 import {AppComponent} from './app.component';
 import {AppMainComponent} from './app.main.component';
-import {ConfigService} from './demo/service/app.config.service';
-import {AppConfig} from './demo/domain/appconfig';
+import {ConfigService} from './service/app.config.service';
+import {AppConfig} from './domain/appconfig';
 import {Subscription} from 'rxjs';
 @Component({
     selector: 'app-config',

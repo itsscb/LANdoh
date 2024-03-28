@@ -145,6 +145,10 @@ export class AppHomeComponent implements OnInit {
 }
 
 confirm_request_dir(event: Event,nick: string, id: string, name: string) {
+   if(this.sources.some((s) => s.id == id && s.name == name) && this.new_sources != null && !this.new_sources.some((s) =>  s.id == id && s.name == name)) {
+      this.toast(Severity.warn, 'Seed no longer available', 'Damn noobs!');
+      return;
+    }
   this.confirmationService.confirm({
       target: event.target as EventTarget,
       message: 'Leech "'+name+'" from "'+nick+'"?',

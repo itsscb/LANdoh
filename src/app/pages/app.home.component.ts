@@ -1,9 +1,8 @@
 // import { confirm } from '@tauri-apps/api/dialog';
 // import { homeDir } from '@tauri-apps/api/path';
-import { MessageService } from 'primeng/api';
+import { MessageService, ConfirmEventType, ConfirmationService } from 'primeng/api';
 
 import { Component, OnInit } from '@angular/core';
-import { Table } from 'primeng/table';
 
 import { invoke } from '@tauri-apps/api';
 import { open } from '@tauri-apps/api/dialog';
@@ -17,17 +16,15 @@ import { App, Severity } from '../models/app';
   selector: 'app-home',
   templateUrl: './app.home.component.html',
   styleUrls: ['./app.home.component.css'],
-  providers: [MessageService]
+  providers: [MessageService, ConfirmationService]
 })
 export class AppHomeComponent implements OnInit {
-  constructor(private toastService: MessageService) {}
+  constructor(private toastService: MessageService, private confirmationService: ConfirmationService) {}
 
   app_state() {
     invoke('app_state').then((s) => {
-      console.log('raw:',s);
       this.apps = [s as App];
       this.app = structuredClone(s as App);
-      // this.app.shared_directories = this.app.shared_directories as SharedDirectory[];
       console.log(this.app);
     })
   }
@@ -64,17 +61,17 @@ export class AppHomeComponent implements OnInit {
     
     if (!exists) {
       invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => {
-        this.toast(Severity.success, 'Added: '+selected.toString())
+        this.toast(Severity.success, 'Seeding',selected.toString())
         this.app_state();
-      }).catch(() => this.toast(Severity.error, 'Error adding Dir'));
+      }).catch(() => this.toast(Severity.error, 'Failed to seed', selected.toString()));
     }
   }
 
   async remove_shared_dir(name: string) {
     invoke('remove_shared_dir', {path: name, window: appWindow}).then(() => {
-      this.toast(Severity.success, 'Removed: '+name)
+      this.toast(Severity.success, 'Unseeded',name)
       this.app_state();
-    }).catch(() => this.toast(Severity.error, 'Error removing Dir'));
+    }).catch(() => this.toast(Severity.error, 'Failed to unseed',name));
   }
 
 
@@ -105,27 +102,69 @@ export class AppHomeComponent implements OnInit {
   request_dir(id: string, name: string) {
     invoke("request_dir", { id: id, dir: name }).then(() =>  this.toast(
       Severity.info,
-      'Requested Directory: ' + name + ' from ' + id,
+      'Leeching: ' + name + ' from ' + id,
     )).catch(() => this.toast(Severity.error, 'Error requesting Directory: '+name + ' from ' + id));
   }
 
- async watch() {
-    await listen('sources', (event) => {
+ watch() {
+    listen('sources', (event) => {
       this.new_sources = [...event.payload as Directory[]];
       this.app_state();
-      // this.toastService.add({
-      //   severity: 'success', summary: 'Some new Directories were shared',
-      // });
     })
   }
 
-  toast(severity: Severity ,summary: string) {
+  toast(severity: Severity ,summary: string, detail?: string) {
     console.log(severity.toString());
     this.toastService.add({
       severity: severity.toString(),
-      summary: summary
+      summary: summary,
+      detail: detail
     });
   } 
+
+  confirm_remove_dir(event: Event, name: string) {
+    this.confirmationService.confirm({
+        target: event.target as EventTarget,
+        message: 'Are you sure you don\'t want to seed "'+name+'" anymore?',
+        header: 'Unseeding Directory',
+        icon: 'pi pi-exclamation-triangle',
+        acceptIcon:"pi pi-trash",
+        rejectIcon:"none",
+        acceptLabel: "No one else shall have it but me!",
+        rejectLabel: "Keep seeding",
+        rejectButtonStyleClass:"p-button-text",
+        acceptButtonStyleClass: "p-button-danger p-button text",
+        accept: () => {
+            this.toastService.add({ severity: 'info', summary: 'Unseeding', detail: '"'+name+'"' });
+            this.remove_shared_dir(name);
+        },
+        reject: () => {
+            this.toastService.add({ severity: 'error', summary: 'Still seeding', detail: '"'+name+'"'});
+        }
+    });
+}
+
+confirm_request_dir(event: Event,nick: string, id: string, name: string) {
+  this.confirmationService.confirm({
+      target: event.target as EventTarget,
+      message: 'Leech "'+name+'" from "'+nick+'"?',
+      header: 'Grab Directory',
+      icon: 'pi pi-download',
+      acceptIcon:"pi pi-check",
+      rejectIcon:"none",
+      acceptLabel: "Leech it already!",
+      rejectLabel: "Nope",
+      rejectButtonStyleClass:"p-button-text",
+      acceptButtonStyleClass: "p-button-success p-button text",
+      accept: () => {
+          this.toastService.add({ severity: 'info', summary: 'Leeching', detail: '"'+name+'" from "'+nick+'"' });
+          this.request_dir(id, name);
+      },
+      reject: () => {
+          this.toastService.add({ severity: 'error', summary: 'Canceled', detail: 'No one leeches anymore...'});
+      }
+  });
+}
 
   apps: App[];
   app: App;
@@ -144,15 +183,18 @@ export class AppHomeComponent implements OnInit {
   sources: Directory[];
   new_sources: Directory[];
 
-  async ngOnInit(): Promise<void> {
-   
-    // const confirmed = await confirm('Are you sure?', 'Tauri');
-    
+  ngOnInit() {    
     this.app_state();
     this.listen_for();
     this.serve();
     this.broadcast();
-    await this.watch()
+
+    setInterval(async () => {
+      let unlisten = await listen('sources', (event) => {
+        this.new_sources = [...event.payload as Directory[]];
+      })
+      setInterval(() => unlisten(), 2000);
+    }, 2000);
   }
 
 

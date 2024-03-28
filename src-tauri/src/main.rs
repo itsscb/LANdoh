@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
+use chrono::{DateTime, Utc};
+
 use landoh::client::Client;
 
 use landoh::app::{App, Config};
@@ -21,6 +23,19 @@ struct Payload {
     id: String,
     nickname: String,
     ip: Option<String>,
+    timestamp: DateTime<Utc>
+}
+
+impl Payload {
+    pub fn new(name: String, id: String, nickname: String, ip: Option<String>, timestamp: DateTime<Utc>) -> Self {
+        Payload{
+            name,
+            id, 
+            nickname,
+            ip,
+            timestamp,
+        }
+    }
 }
 
 #[tauri::command]
@@ -148,7 +163,46 @@ async fn listen_for(
     state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
     window: Window,
 ) -> Result<(), ()> {
+    let w = Arc::new(tokio::sync::Mutex::new(window));
+    let w1 = Arc::clone(&w);
     let a = Arc::clone(&state);
+    let b = Arc::clone(&state);
+    
+    tauri::async_runtime::spawn(async move {
+        loop {
+                    thread::sleep(Duration::from_secs(15));
+{       
+    
+    let c = b.lock().await;
+    let mut dirs = c.sources.lock().await;
+    let len = dirs.len();
+    dirs.retain(|d| !d.is_outdated());
+    if len == dirs.len() {
+        continue;
+    }
+    let mut payload: Vec<Payload> = vec![];
+                dirs.iter().for_each(|so| {
+                    so.shared_directories.iter().for_each(|d| {
+                        payload.push(Payload::new(
+                            d.to_string(),
+                            so.id.clone(),
+                            so.nickname.clone(),
+                            so.ip.clone(),
+                            so.timestamp.clone(),
+                        ));
+                    })
+                });
+
+                let err = w1.lock().await.emit_all("sources", payload);
+                match err {
+                    Ok(_) => {}
+                    Err(err) => {
+                        warn!("Error emitting message: {:?}", err);
+                    }
+                }
+}        
+}
+    });
     tauri::async_runtime::spawn(async move {
         let rx = a.lock().await.listen().await;
         tauri::async_runtime::spawn(async move {
@@ -156,16 +210,17 @@ async fn listen_for(
                 let mut payload: Vec<Payload> = vec![];
                 s.iter().for_each(|so| {
                     so.shared_directories.iter().for_each(|d| {
-                        payload.push(Payload {
-                            name: d.to_string(),
-                            id: so.id.clone(),
-                            nickname: so.nickname.clone(),
-                            ip: so.ip.clone(),
-                        });
+                        payload.push(Payload::new(
+                            d.to_string(),
+                            so.id.clone(),
+                            so.nickname.clone(),
+                            so.ip.clone(),
+                            so.timestamp.clone(),
+                        ));
                     })
                 });
 
-                let err = window.emit_all("sources", payload);
+                let err = w.lock().await.emit_all("sources", payload);
                 match err {
                     Ok(_) => {}
                     Err(err) => {

@@ -13,6 +13,7 @@ use landoh::app::{App, Config};
 
 use landoh::source::Source;
 use log::{info, warn};
+use serde::Serialize;
 use tauri::{Manager, Window};
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -115,8 +116,10 @@ async fn request_dir(
     id: String,
     dir: String,
     state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>,
+    window: Window,
 ) -> Result<(), ()> {
     let a = Arc::clone(&state);
+    let w = Arc::new(window);
     tauri::async_runtime::spawn(async move {
         let mut addr = String::from("http://");
         let ip = match a
@@ -142,11 +145,41 @@ async fn request_dir(
 
         info!("REQUESTING: {} from {:?}", dir, addr);
 
-        let files = c
+        let files = match c
             .get_directory(dir.clone(), addr.to_string())
-            .await
-            .unwrap();
-        c.get_all_files(addr.to_string(), files).await.unwrap();
+            .await {
+                Ok(v) => v,
+                Err(_) => {
+                    let _ = w.emit_all("files", FilePayload{
+                        id,
+                        dir,
+                        successful: vec![],
+                        failed: vec!["total failure".to_string()],
+                    });
+                    
+                    return;
+                    }
+            };
+
+            #[derive(Serialize, Clone)]
+        struct FilePayload {
+            id: String,
+            dir: String,
+            successful: Vec<String>,
+            failed: Vec<String>
+        }
+
+        match c.get_all_files(addr.to_string(), files).await {
+            Ok((s, f)) => {
+                let _ = w.emit_all("files", FilePayload{
+                    id,
+                    dir,
+                    successful: s,
+                    failed: f
+                });
+            }
+            Err(_) => {}
+        };
     });
     Ok(())
 }

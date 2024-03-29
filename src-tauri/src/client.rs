@@ -9,6 +9,7 @@ use std::{
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
 use tokio_stream::StreamExt;
+use tokio::sync::Mutex;
 
 use super::pb::{
     get_file_response::FileResponse, lan_doh_client, FileMetaData, GetDirectoryRequest,
@@ -30,21 +31,35 @@ impl Client {
         self: Arc<Self>,
         addr: String,
         files: Vec<FileMetaData>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(Vec<String>, Vec<String>), Box<dyn Error>> {
         let mut handles = vec![];
+
+        let success: Arc<Mutex<Vec<String>>>= Arc::new(Mutex::new(vec![]));
+        let fail:  Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
 
         let addr = Arc::new(addr);
         let client = self;
-        for f in files {
+        for file in files {
             let a = addr.clone();
             let c = client.clone();
+
+            let s = success.clone();
+            let f = fail.clone();
             handles.push(tokio::spawn(async move {
-                match c.get_file(a.to_string(), f).await {
-                    Ok(_) => {}
+                let mut ok = false;
+                match c.get_file(a.to_string(), &file).await {
+                    Ok(_) => {
+                        ok = true;
+                    }
                     Err(err) => {
                         error!("{:?}", err);
                     }
                 };
+                if ok {
+                    s.lock().await.push(file.path);
+                } else {
+                    f.lock().await.push(file.path);
+                }
             }));
         }
 
@@ -52,10 +67,10 @@ impl Client {
             let _ = h.await;
         }
 
-        Ok(())
+        Ok((success.lock_owned().await.to_vec(), fail.lock_owned().await.to_vec()))
     }
 
-    pub async fn get_file(&self, addr: String, file: FileMetaData) -> Result<(), Box<dyn Error>> {
+    pub async fn get_file(&self, addr: String, file: &FileMetaData) -> Result<(), Box<dyn Error>> {
         info!("requesting '{}' from {}", &file.path, &addr);
         let mut client = lan_doh_client::LanDohClient::connect(addr).await?;
 
@@ -154,9 +169,10 @@ impl Client {
 
         let request = tonic::Request::new(message);
 
-        let response = client.get_directory(request).await.unwrap().into_inner();
-
-        Ok(response.files)
+        match client.get_directory(request).await {
+            Ok(resp) => Ok(resp.into_inner().files),
+            Err(err) => Err(Box::new(err))
+        }
     }
 }
 

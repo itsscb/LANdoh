@@ -1,6 +1,4 @@
 import { Directory } from './directory';
-import { SharedDirectory } from './source';
-
 
 export class App {
     address: string
@@ -15,4 +13,11 @@ export   enum Severity {
     info = 'info',
     warn = 'warn',
     error = 'error'
+  }
+
+  export class FilePayload {
+    id: string
+    dir: string
+    successful: string[]
+    failed: string[]
   }

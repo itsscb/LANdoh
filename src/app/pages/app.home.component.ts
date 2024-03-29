@@ -9,8 +9,10 @@ import { open } from '@tauri-apps/api/dialog';
 import { emit, listen } from '@tauri-apps/api/event'
 import { appWindow } from '@tauri-apps/api/window';
 
+import { TreeNode } from 'primeng/api';
+
 import { Directory } from '../models/directory';
-import { App, Severity } from '../models/app';
+import { App, Severity, FilePayload } from '../models/app';
 
 @Component({
   selector: 'app-home',
@@ -100,10 +102,7 @@ export class AppHomeComponent implements OnInit {
   }
 
   request_dir(id: string, name: string) {
-    invoke("request_dir", { id: id, dir: name }).then(() =>  this.toast(
-      Severity.info,
-      'Leeching: ' + name + ' from ' + id,
-    )).catch(() => this.toast(Severity.error, 'Error requesting Directory: '+name + ' from ' + id));
+    invoke("request_dir", { id: id, dir: name, window: appWindow}).catch(() => this.toast(Severity.error, 'Error requesting Directory: '+name + ' from ' + id));
   }
 
  watch() {
@@ -114,7 +113,6 @@ export class AppHomeComponent implements OnInit {
   }
 
   toast(severity: Severity ,summary: string, detail?: string) {
-    console.log(severity.toString());
     this.toastService.add({
       severity: severity.toString(),
       summary: summary,
@@ -179,6 +177,10 @@ confirm_request_dir(event: Event,nick: string, id: string, name: string) {
   serving = false;
   broadcasting = false;
 
+  downloadsSidebar = false;
+
+  filePayloads: FilePayload[] = [];
+
   update_sources() {
     this.sources = [...this.new_sources];
     this.new_sources = null;
@@ -199,6 +201,25 @@ confirm_request_dir(event: Event,nick: string, id: string, name: string) {
       })
       setInterval(() => unlisten(), 2000);
     }, 2000);
+
+    
+    setInterval(async () => {
+      let ul = await listen('files', (event) => {
+        let p =event.payload as FilePayload;
+        this.filePayloads.push(p);
+
+        if(p.failed.length > 0) {
+          if(p.successful.length < 1) {
+            this.toast(Severity.error, 'Leech of "'+p.dir+'" failed', p.failed.join(' & '))
+          } else {
+            this.toast(Severity.error, 'Leech of "'+p.dir+'" partially failed', p.failed.join(' & '))
+            this.toast(Severity.success, 'Leech of "'+p.dir+'" partially successful', p.successful.join(' & '))
+          }
+        }
+
+      });
+      setInterval(() => ul(), 300);
+    }, 300);
   }
 
 

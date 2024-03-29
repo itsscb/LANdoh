@@ -215,6 +215,8 @@ confirm_request_dir(event: Event,nick: string, id: string, name: string) {
             this.toast(Severity.error, 'Leech of "'+p.dir+'" partially failed', p.failed.join(' & '))
             this.toast(Severity.success, 'Leech of "'+p.dir+'" partially successful', p.successful.join(' & '))
           }
+        } else if (p.successful.length > 0){
+          this.toast(Severity.success, 'Leech of "'+p.dir+'" successful', p.successful.join(' & '))
         }
 
       });

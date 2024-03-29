@@ -9,7 +9,6 @@ use std::{
 use data_encoding::HEXUPPER;
 use ring::digest::{Context, SHA256};
 use tokio_stream::StreamExt;
-use tokio::sync::Mutex;
 
 use super::pb::{
     get_file_response::FileResponse, lan_doh_client, FileMetaData, GetDirectoryRequest,
@@ -32,22 +31,13 @@ impl Client {
         addr: String,
         files: Vec<FileMetaData>,
     ) -> Result<(Vec<String>, Vec<String>), Box<dyn Error>> {
-        let mut handles = vec![];
 
-        let success: Arc<Mutex<Vec<String>>>= Arc::new(Mutex::new(vec![]));
-        let fail:  Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
+        let mut success: Vec<String> = vec![];
+        let mut fail: Vec<String> = vec![];
 
-        let addr = Arc::new(addr);
-        let client = self;
         for file in files {
-            let a = addr.clone();
-            let c = client.clone();
-
-            let s = success.clone();
-            let f = fail.clone();
-            handles.push(tokio::spawn(async move {
                 let mut ok = false;
-                match c.get_file(a.to_string(), &file).await {
+                match self.get_file(addr.to_string(), &file).await {
                     Ok(_) => {
                         ok = true;
                     }
@@ -56,18 +46,13 @@ impl Client {
                     }
                 };
                 if ok {
-                    s.lock().await.push(file.path);
+                    success.push(file.path);
                 } else {
-                    f.lock().await.push(file.path);
+                    fail.push(file.path);
                 }
-            }));
         }
 
-        for h in handles {
-            let _ = h.await;
-        }
-
-        Ok((success.lock_owned().await.to_vec(), fail.lock_owned().await.to_vec()))
+        Ok((success, fail))
     }
 
     pub async fn get_file(&self, addr: String, file: &FileMetaData) -> Result<(), Box<dyn Error>> {
@@ -93,10 +78,6 @@ impl Client {
         let mut written: u64 = 0;
         let path = path.clone();
         let parent = path.parent().unwrap();
-
-        // TODO:
-        // Convert absolute path to relative path
-        // before creating dir tree and saving files
 
         fs::create_dir_all(&parent)?;
 
@@ -175,59 +156,3 @@ impl Client {
         }
     }
 }
-
-//
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn Error>> {
-//     use clap::{Parser, Subcommand};
-
-//     #[derive(Parser)]
-//     struct Cli {
-//         #[arg(short, long)]
-//         address: Option<String>,
-//         #[arg(short, long)]
-//         destination: Option<String>,
-//         #[command(subcommand)]
-//         command: Option<Commands>,
-//     }
-
-//     #[derive(Subcommand)]
-//     enum Commands {
-//         GetDirectories {
-//             #[arg(short, long)]
-//             dir: String,
-//         },
-//         GetAllFiles {
-//             #[arg(short, long)]
-//             dir: String,
-//         },
-//     }
-
-//     let cli = Cli::parse();
-
-//     let addr = match cli.address {
-//         Some(addr) => addr,
-//         None => "http://127.0.0.1:9001".to_string(),
-//     };
-//     let destination = match cli.destination {
-//         Some(destination) => destination,
-//         None => "testdestination".to_string(),
-//     };
-
-//     let c = Arc::new(Client::new(destination));
-
-//     match cli.command {
-//         Some(Commands::GetDirectories { dir }) => {
-//             println!("{:?}", c.get_directory(dir, addr.clone()).await)
-//         }
-//         Some(Commands::GetAllFiles { dir }) => {
-//             let files = c.get_directory(dir, addr.clone()).await.unwrap();
-//             c.get_all_files(addr, files).await.unwrap();
-//         }
-//         _ => {
-//             return Ok(());
-//         }
-//     };
-
-//     Ok(())
-// }

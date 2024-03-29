@@ -63,30 +63,30 @@ export class AppHomeComponent implements OnInit {
     
     if (!exists) {
       invoke('add_shared_dir', {path: selected, window: appWindow}).then(() => {
-        this.toast(Severity.success, 'Seeding',selected.toString())
+        this.toast({severity:Severity.success,summary: 'Seeding',detail:selected.toString()})
         this.app_state();
-      }).catch(() => this.toast(Severity.error, 'Failed to seed', selected.toString()));
+      }).catch(() => this.toast({severity:Severity.error,summary: 'Failed to seed',detail: selected.toString()}));
     }
   }
 
   async remove_shared_dir(name: string) {
     invoke('remove_shared_dir', {path: name, window: appWindow}).then(() => {
-      this.toast(Severity.success, 'Unseeded',name)
+      this.toast({severity: Severity.success,summary: 'Unseeded',detail:name})
       this.app_state();
-    }).catch(() => this.toast(Severity.error, 'Failed to unseed',name));
+    }).catch(() => this.toast({severity: Severity.error, summary:'Failed to unseed',detail: name}));
   }
 
 
   listen_for() {
     if (!this.listening) {
-      invoke('listen_for', { window: appWindow }).then(() => this.toast(Severity.info, 'Listening for shared directories')).catch(() => this.toast(Severity.error, 'Error starting Listener'));
+      invoke('listen_for', { window: appWindow }).then(() => this.toast({severity: Severity.info,summary: 'Listening for shared directories'})).catch(() => this.toast({severity: Severity.error, summary:'Error starting Listener'}));
       this.listening = true;
     }
   }
 
   serve() {
     if (!this.serving) {
-      invoke('serve').then(() => this.toast(Severity.info, 'Serving shared directories')).catch(() => this.toast(Severity.error, 'Error starting Server'));
+      invoke('serve').then(() => this.toast({severity: Severity.info, summary:'Serving shared directories'})).catch(() => this.toast({severity: Severity.error, summary:'Error starting Server'}));
       this.serving = true;
     }
   }
@@ -94,15 +94,17 @@ export class AppHomeComponent implements OnInit {
   broadcast() {
     if(!this.broadcasting) {
       invoke("broadcast").then(() =>  this.toast(
-        Severity.info,
-        'Broadcasting shared directories',
-      )).catch(() => this.toast(Severity.error, 'Error starting Broadcaster'));
+        {
+        severity: Severity.info,
+        summary: 'Broadcasting shared directories',
+        }
+      )).catch(() => this.toast({severity: Severity.error, summary: 'Error starting Broadcaster'}));
       this.broadcasting = true;
     }
   }
 
   request_dir(id: string, name: string) {
-    invoke("request_dir", { id: id, dir: name, window: appWindow}).catch(() => this.toast(Severity.error, 'Error requesting Directory: '+name + ' from ' + id));
+    invoke("request_dir", { id: id, dir: name, window: appWindow}).catch(() => this.toast({severity: Severity.error, summary:'Error requesting Directory: '+name + ' from ' + id}));
   }
 
  watch() {
@@ -112,11 +114,14 @@ export class AppHomeComponent implements OnInit {
     })
   }
 
-  toast(severity: Severity ,summary: string, detail?: string) {
+  toast({severity, summary, detail = '', sticky = false} : {
+    severity: Severity ,summary: string, detail?: string, sticky?: boolean
+  }) {
     this.toastService.add({
       severity: severity.toString(),
       summary: summary,
-      detail: detail
+      detail: detail,
+      sticky: sticky
     });
   } 
 
@@ -133,18 +138,18 @@ export class AppHomeComponent implements OnInit {
         rejectButtonStyleClass:"p-button-text",
         acceptButtonStyleClass: "p-button-danger p-button text",
         accept: () => {
-            this.toastService.add({ severity: 'info', summary: 'Unseeding', detail: '"'+name+'"' });
+            this.toast({ severity: Severity.info, summary: 'Unseeding', detail: '"'+name+'"' });
             this.remove_shared_dir(name);
         },
         reject: () => {
-            this.toastService.add({ severity: 'error', summary: 'Still seeding', detail: '"'+name+'"'});
+            this.toast({ severity: Severity.error, summary: 'Still seeding', detail: '"'+name+'"'});
         }
     });
 }
 
 confirm_request_dir(event: Event,nick: string, id: string, name: string) {
    if(this.sources.some((s) => s.id == id && s.name == name) && this.new_sources != null && !this.new_sources.some((s) =>  s.id == id && s.name == name)) {
-      this.toast(Severity.warn, 'Seed no longer available', 'Damn noobs!');
+      this.toast({severity: Severity.warn, summary: 'Seed no longer available', detail: 'Damn noobs!'});
       return;
     }
   this.confirmationService.confirm({
@@ -159,11 +164,11 @@ confirm_request_dir(event: Event,nick: string, id: string, name: string) {
       rejectButtonStyleClass:"p-button-text",
       acceptButtonStyleClass: "p-button-success p-button text",
       accept: () => {
-          this.toastService.add({ severity: 'info', summary: 'Leeching', detail: '"'+name+'" from "'+nick+'"' });
+          this.toast({ severity: Severity.info, summary: 'Leeching', detail: '"'+name+'" from "'+nick+'"' });
           this.request_dir(id, name);
       },
       reject: () => {
-          this.toastService.add({ severity: 'error', summary: 'Canceled', detail: 'No one leeches anymore...'});
+          this.toast({ severity: Severity.error, summary: 'Canceled', detail: 'No one leeches anymore...'});
       }
   });
 }
@@ -189,39 +194,41 @@ confirm_request_dir(event: Event,nick: string, id: string, name: string) {
   sources: Directory[];
   new_sources: Directory[];
 
-  ngOnInit() {    
+  async ngOnInit() {    
     this.app_state();
     this.listen_for();
     this.serve();
     this.broadcast();
 
-    setInterval(async () => {
-      let unlisten = await listen('sources', (event) => {
+    // setInterval(async () => {
+    //   let unlisten = await 
+      await listen('sources', (event) => {
         this.new_sources = [...event.payload as Directory[]];
       })
-      setInterval(() => unlisten(), 2000);
-    }, 2000);
+    //   setInterval(() => unlisten(), 2000);
+    // }, 2000);
 
     
-    setInterval(async () => {
-      let ul = await listen('files', (event) => {
+    // setInterval(async () => {
+      // let ul = await 
+      await listen('files', (event) => {
         let p =event.payload as FilePayload;
         this.filePayloads.push(p);
 
         if(p.failed.length > 0) {
           if(p.successful.length < 1) {
-            this.toast(Severity.error, 'Leech of "'+p.dir+'" failed', p.failed.join(' & '))
+            this.toast({severity: Severity.error,summary: 'Leech of "'+p.dir+'" failed', sticky: true})
           } else {
-            this.toast(Severity.error, 'Leech of "'+p.dir+'" partially failed', p.failed.join(' & '))
-            this.toast(Severity.success, 'Leech of "'+p.dir+'" partially successful', p.successful.join(' & '))
+            this.toast({severity: Severity.error, summary: 'Leech of "'+p.dir+'" partially failed', sticky: true})
+            this.toast({severity: Severity.success, summary: 'Leech of "'+p.dir+'" partially successful', sticky: true})
           }
         } else if (p.successful.length > 0){
-          this.toast(Severity.success, 'Leech of "'+p.dir+'" successful', p.successful.join(' & '))
+          this.toast({severity: Severity.success, summary: 'Leech of "'+p.dir+'" successful', sticky: true})
         }
 
       });
-      setInterval(() => ul(), 300);
-    }, 300);
+    //   setInterval(() => ul(), 300);
+    // }, 300);
   }
 
 

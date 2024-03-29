@@ -171,8 +171,6 @@ impl App {
                         c.nickname.to_string().clone(),
                         None,
                         c.shared_directories
-                            // .lock()
-                            // .await
                             .clone()
                             .iter()
                             .map(|d| d.name.clone())

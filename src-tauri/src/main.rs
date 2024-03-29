@@ -48,18 +48,14 @@ async fn open_dir(path: String) -> Result<(),()> {
 #[tauri::command]
 async fn serve(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<(), ()> {
     let a = Arc::clone(&state);
-    tauri::async_runtime::spawn(async move {
         a.lock().await.serve().await;
-    });
     Ok(())
 }
 
 #[tauri::command]
 async fn broadcast(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<(), ()> {
     let a = Arc::clone(&state);
-    tauri::async_runtime::spawn(async move {
         a.lock().await.broadcast().await;
-    });
     Ok(())
 }
 

@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .file_descriptor_set_path(out_dir.join("pb_descriptor.bin"))
-        .out_dir("./src")
+        // .out_dir("./src")
         .compile(&[proto_file], &["proto"])?;
 
     tauri_build::build();

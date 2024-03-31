@@ -4,6 +4,7 @@ mod model;
 pub mod multicast;
 mod pb;
 mod server;
+mod sv;
 pub mod source;
 
 pub fn shorten_path(name: String, path: String) -> String {

@@ -17,8 +17,8 @@ use crate::model::CHUNK_SIZE;
 
 use self::pb_proto::{
     get_file_response::FileResponse, lan_doh_server, lan_doh_server::LanDoh, FileMetaData,
-    GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse,
-    ListDirectoriesRequest, ListDirectoriesResponse, HealthzRequest, HealthzResponse
+    GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse, HealthzRequest,
+    HealthzResponse, ListDirectoriesRequest, ListDirectoriesResponse,
 };
 
 pub use self::pb_proto::Directory;
@@ -34,7 +34,8 @@ use crate::shorten_path;
 
 mod pb_proto {
     tonic::include_proto!("pb");
-    pub(crate) const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("pb_descriptor");
+    pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
+        tonic::include_file_descriptor_set!("pb_descriptor");
 }
 
 #[derive(Debug)]
@@ -79,21 +80,20 @@ impl Server {
 #[tonic::async_trait]
 impl LanDoh for Server {
     type GetFileStream = Pin<Box<dyn Stream<Item = Result<GetFileResponse, Status>> + Send>>;
-    
+
     async fn healthz(
         &self,
         _request: tonic::Request<HealthzRequest>,
     ) -> Result<tonic::Response<HealthzResponse>, tonic::Status> {
-        
-        Ok(tonic::Response::new(HealthzResponse{
-            broadcaster: true, 
+        Ok(tonic::Response::new(HealthzResponse {
+            broadcaster: true,
             event_listener: true,
             address: "".to_string(),
             id: "".to_string(),
-            nickname: "".to_string()
+            nickname: "".to_string(),
         }))
     }
-    
+
     async fn list_directories(
         &self,
         _request: Request<ListDirectoriesRequest>,

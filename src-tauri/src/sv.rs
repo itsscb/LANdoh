@@ -1,6 +1,9 @@
 use core::fmt;
 use std::{env, path::PathBuf, pin::Pin};
-use std::{net::{Ipv4Addr, SocketAddr}, sync::{Arc, RwLock}};
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    sync::{Arc, RwLock},
+};
 
 use serde::Deserialize;
 use tokio::sync::mpsc::{self, Receiver, Sender};
@@ -8,7 +11,6 @@ use tokio::sync::oneshot;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
 use uuid::Uuid;
-
 
 #[allow(unused_imports)]
 #[cfg(test)]
@@ -19,12 +21,16 @@ use std::{println as info, println as warn, println as debug, println as error};
 use log::{debug, error, info, warn};
 
 use self::pb::get_file_response::FileResponse;
+use self::pb::{
+    lan_doh_server::LanDoh, Directory, GetDirectoryRequest, GetDirectoryResponse, GetFileRequest,
+    GetFileResponse, ListDirectoriesRequest, ListDirectoriesResponse,
+};
 use self::pb::{FileMetaData, HealthzRequest, HealthzResponse};
-use self::pb::{Directory, lan_doh_server::LanDoh, GetDirectoryRequest, GetDirectoryResponse, GetFileRequest, GetFileResponse, ListDirectoriesRequest, ListDirectoriesResponse};
 
 mod pb {
     tonic::include_proto!("pb");
-    pub(crate) const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("pb_descriptor");
+    pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
+        tonic::include_file_descriptor_set!("pb_descriptor");
 }
 
 #[allow(dead_code)]
@@ -41,7 +47,7 @@ pub enum Message {
     StartServe(Option<SocketAddr>),
     StartListen,
     StopListen,
-    Exit
+    Exit,
 }
 
 #[derive(Debug)]
@@ -52,7 +58,10 @@ pub struct Request {
 
 impl Request {
     pub fn new<T>(service: Service, request: tonic::Request<T>) -> Self {
-        Self { remote_address: request.remote_addr(), service: service }
+        Self {
+            remote_address: request.remote_addr(),
+            service: service,
+        }
     }
 }
 
@@ -60,7 +69,12 @@ impl fmt::Display for Request {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.remote_address {
             Some(addr) => {
-                write!(f, "{} requested {}", addr.to_string(), self.service.to_string())
+                write!(
+                    f,
+                    "{} requested {}",
+                    addr.to_string(),
+                    self.service.to_string()
+                )
             }
             None => {
                 write!(f, "UNKNOWN requested {}", self.service.to_string())
@@ -83,7 +97,6 @@ impl fmt::Display for Service {
         write!(f, "{:?}", self)
     }
 }
-
 
 #[derive(Debug)]
 pub enum MessageResponse {
@@ -120,106 +133,130 @@ impl Server {
         let serving = self.serving.clone();
         tokio::spawn(async move {
             let reflection_service = tonic_reflection::server::Builder::configure()
-            .register_encoded_file_descriptor_set(pb::FILE_DESCRIPTOR_SET)
-            .build()
-            .unwrap();
+                .register_encoded_file_descriptor_set(pb::FILE_DESCRIPTOR_SET)
+                .build()
+                .unwrap();
 
             let addr = self.serve_addr;
-            *serving.write().unwrap() = true;
-            
+
+            {
+                *serving.write().unwrap() = true;
+            }
             let _ = tonic::transport::Server::builder()
-            .add_service(pb::lan_doh_server::LanDohServer::new(self))
-            .add_service(reflection_service)
-            .serve_with_shutdown(addr, async { drop(rx.await)} ).await;        
-            
-            *serving.write().unwrap() = false;
-    });
+                .add_service(pb::lan_doh_server::LanDohServer::new(self))
+                .add_service(reflection_service)
+                .serve_with_shutdown(addr, async { drop(rx.await) })
+                .await;
+
+            {
+                *serving.write().unwrap() = false;
+            }
+        });
         tx
     }
 
-    
-#[allow(dead_code)]
-pub async fn run(self) -> (Sender<Message>, Receiver<MessageResponse>){
-    let mut sv = self.clone();
-    
-    let (reply_tx, reply_rx) = mpsc::channel::<MessageResponse>(128);
-    let (tx, rx) = mpsc::channel::<Message>(128);
-    sv.tx = Some(tx.clone());
-    info!("Starting up LANdoh backend on {} as {} with ID: {}", sv.serve_addr.to_string(), *sv.nickname.read().unwrap(), sv.id);
+    #[allow(dead_code)]
+    pub async fn run(self) -> (Sender<Message>, Receiver<MessageResponse>) {
+        let mut sv = self.clone();
 
-    if *sv.event_listening.read().unwrap() {
-        sv.send(Message::StartListen).await;
-        info!("EventListener: Enabled");
-    } else {
-        info!("EventListener: Disabled");
-    }
-    if *sv.broadcasting.read().unwrap() {
-        sv.send(Message::StartBroadcast).await;
-        info!("Broadcasting: Enabled");
-    } else {
-        info!("Broadcasting: Disabled");
-    }
+        let (reply_tx, reply_rx) = mpsc::channel::<MessageResponse>(128);
+        let (tx, rx) = mpsc::channel::<Message>(128);
+        sv.tx = Some(tx.clone());
+        info!(
+            "Starting up LANdoh backend on {} as {} with ID: {}",
+            sv.serve_addr.to_string(),
+            *sv.nickname.read().unwrap(),
+            sv.id
+        );
 
+        if *sv.event_listening.read().unwrap() {
+            sv.send(Message::StartListen).await;
+            info!("EventListener: Enabled");
+        } else {
+            info!("EventListener: Disabled");
+        }
+        if *sv.broadcasting.read().unwrap() {
+            sv.send(Message::StartBroadcast).await;
+            info!("Broadcasting: Enabled");
+        } else {
+            info!("Broadcasting: Disabled");
+        }
 
-    let atx = tx.clone();
-    let _ = tokio::spawn(async move {
-        let mut serve_exit_tx: Option<oneshot::Sender<()>> = None;
-        let mut rx = rx;
-        let tx = atx.clone();
-        let rtx = reply_tx;
+        let atx = tx.clone();
+        let _ = tokio::spawn(async move {
+            let mut serve_exit_tx: Option<oneshot::Sender<()>> = None;
+            let mut rx = rx;
+            let tx = atx.clone();
+            let rtx = reply_tx;
 
-        loop {
-            match rx.recv().await {
-                Some(msg) => {
-                    match msg {
+            loop {
+                match rx.recv().await {
+                    Some(msg) => match msg {
                         Message::GotRequest(r) => {
                             debug!("{}", r);
-                            let _ = rtx.send(MessageResponse::Done(Message::GotRequest(r))).await;
-                        },
+                            let _ = rtx
+                                .send(MessageResponse::Done(Message::GotRequest(r)))
+                                .await;
+                        }
                         Message::SendFile(p) => {
                             debug!("Got 'SendFile' Message: {}", &p);
                             let _ = rtx.send(MessageResponse::Done(Message::SendFile(p))).await;
-                        },
+                        }
                         Message::AddDir(d) => {
                             debug!("Got 'AddDir' Request: {:?}", &d);
                             let dir = d.to_string_lossy().to_string();
-                            sv.shared.write().unwrap().push(Directory{
-                                name: dir.clone(),
-                                paths: vec![dir]
-                            });
+                            {
+                                sv.shared.write().unwrap().push(Directory {
+                                    name: dir.clone(),
+                                    paths: vec![dir],
+                                });
+                            }
                             let _ = rtx.send(MessageResponse::Done(Message::AddDir(d))).await;
-                        },
+                        }
                         Message::RemoveDir(name) => {
                             debug!("Got 'RemoveDir' Request: {:?}", &name);
-                            sv.shared.write().unwrap().retain(|d| d.name != name.to_string_lossy().to_string());
-                            let _ = rtx.send(MessageResponse::Done(Message::RemoveDir(name))).await;
-                        },
+                            {
+                                sv.shared
+                                    .write()
+                                    .unwrap()
+                                    .retain(|d| d.name != name.to_string_lossy().to_string());
+                            }
+                            let _ = rtx
+                                .send(MessageResponse::Done(Message::RemoveDir(name)))
+                                .await;
+                        }
                         Message::SetNickname(n) => {
                             debug!("Got 'SetNickname' Request: {}", &n);
-                            {                            
+                            {
                                 *sv.nickname.write().unwrap() = n.clone();
                             }
-                            let _ = rtx.send(MessageResponse::Done(Message::SetNickname(n))).await;
-                        },
+                            let _ = rtx
+                                .send(MessageResponse::Done(Message::SetNickname(n)))
+                                .await;
+                        }
                         Message::StartBroadcast => {
                             debug!("Got 'StartBroadcast' Request");
-                            let _ = rtx.send(MessageResponse::Done(Message::StartBroadcast)).await;
-                        },
+                            let _ = rtx
+                                .send(MessageResponse::Done(Message::StartBroadcast))
+                                .await;
+                        }
                         Message::StopBroadcast => {
                             debug!("Got 'StopBroadcast' Request");
-                            let _ = rtx.send(MessageResponse::Done(Message::StartBroadcast)).await;
-                        },
+                            let _ = rtx
+                                .send(MessageResponse::Done(Message::StartBroadcast))
+                                .await;
+                        }
                         Message::StartListen => {
                             debug!("Got 'StartListen' Request");
                             let _ = rtx.send(MessageResponse::Done(Message::StartListen)).await;
-                        },
+                        }
                         Message::StopListen => {
                             debug!("Got 'StopListen' Request");
                             let _ = rtx.send(MessageResponse::Done(Message::StopListen)).await;
-                        },
+                        }
                         Message::StartServe(addr) => {
                             debug!("Got 'StartServe' Request: {:?}", &addr);
-                            
+
                             let mut start = false;
 
                             if let Some(ref t) = serve_exit_tx {
@@ -227,37 +264,50 @@ pub async fn run(self) -> (Sender<Message>, Receiver<MessageResponse>){
                                     start = true;
                                 }
                             }
-                            
+
                             if let None = serve_exit_tx {
                                 start = true;
                             }
-                            
+
                             if start {
                                 match addr {
                                     Some(a) => sv.serve_addr = a,
-                                    None => {},
+                                    None => {}
                                 };
                                 serve_exit_tx = Some(sv.clone().serve());
-                                let _ = rtx.clone().send(MessageResponse::Done(Message::StartServe(addr))).await;
+                                let _ = rtx
+                                    .clone()
+                                    .send(MessageResponse::Done(Message::StartServe(addr)))
+                                    .await;
                             } else {
-                                let _ = rtx.clone().send(MessageResponse::Err(format!("Already serving on: {}", sv.serve_addr.to_string()))).await;
+                                let _ = rtx
+                                    .clone()
+                                    .send(MessageResponse::Err(format!(
+                                        "Already serving on: {}",
+                                        sv.serve_addr.to_string()
+                                    )))
+                                    .await;
                             }
-                            
-
-                        },
+                        }
                         Message::StopServe => {
                             debug!("Got 'StopServe' Request");
                             if let Some(t) = serve_exit_tx.take() {
                                 match t.send(()) {
                                     Ok(_) => {
-                                        let _ = rtx.send(MessageResponse::Done(Message::StopServe)).await;
+                                        let _ = rtx
+                                            .send(MessageResponse::Done(Message::StopServe))
+                                            .await;
                                     }
                                     Err(_) => {
-                                        let _ = rtx.send(MessageResponse::Err("failed to stop serving".to_string())).await;
+                                        let _ = rtx
+                                            .send(MessageResponse::Err(
+                                                "failed to stop serving".to_string(),
+                                            ))
+                                            .await;
                                     }
                                 };
                             }
-                        },
+                        }
                         Message::Exit => {
                             debug!("SENDING EXIT REQUESTS...");
                             let _ = tx.send(Message::StopListen).await;
@@ -268,16 +318,14 @@ pub async fn run(self) -> (Sender<Message>, Receiver<MessageResponse>){
                             debug!("SEND EXIT REQUEST: StopServe");
                             let _ = rtx.send(MessageResponse::Done(Message::Exit)).await;
                             break;
-                        },
-                    }
-                },
-                None => {
+                        }
+                    },
+                    None => {}
                 }
             }
-        }
-    });
-    (tx, reply_rx)
-}
+        });
+        (tx, reply_rx)
+    }
 }
 
 #[tonic::async_trait]
@@ -288,14 +336,15 @@ impl LanDoh for Server {
         &self,
         request: tonic::Request<HealthzRequest>,
     ) -> Result<tonic::Response<HealthzResponse>, tonic::Status> {
-        self.send(Message::GotRequest(Request::new(Service::Healthz, request))).await;
-        
-        Ok(tonic::Response::new(HealthzResponse{
-            broadcaster: *self.broadcasting.read().unwrap(), 
+        self.send(Message::GotRequest(Request::new(Service::Healthz, request)))
+            .await;
+
+        Ok(tonic::Response::new(HealthzResponse {
+            broadcaster: *self.broadcasting.read().unwrap(),
             event_listener: *self.event_listening.read().unwrap(),
             address: self.serve_addr.to_string(),
             id: self.id.clone(),
-            nickname: self.nickname.read().unwrap().to_string()
+            nickname: self.nickname.read().unwrap().to_string(),
         }))
     }
 
@@ -304,7 +353,7 @@ impl LanDoh for Server {
         _request: tonic::Request<ListDirectoriesRequest>,
     ) -> Result<tonic::Response<ListDirectoriesResponse>, tonic::Status> {
         unimplemented!("SV::LIST_DIRECTORIES");
-        }
+    }
     async fn get_directory(
         &self,
         _request: tonic::Request<GetDirectoryRequest>,
@@ -328,24 +377,28 @@ impl LanDoh for Server {
             let hash = "psuedo_hash".to_string();
 
             loop {
-                let _ = tx.send(Ok(GetFileResponse {
-                    file_response: Some(FileResponse::Meta(FileMetaData{
-                        file_size: 0,
-                        path: path.clone(),
-                        hash: hash.clone(),
+                let _ = tx
+                    .send(Ok(GetFileResponse {
+                        file_response: Some(FileResponse::Meta(FileMetaData {
+                            file_size: 0,
+                            path: path.clone(),
+                            hash: hash.clone(),
+                        })),
                     }))
-                })).await;
+                    .await;
             }
         });
 
         let output_stream: ReceiverStream<Result<GetFileResponse, tonic::Status>> =
             ReceiverStream::new(rx);
 
-        Ok(tonic::Response::new(Box::pin(output_stream) as Self::GetFileStream))
+        Ok(tonic::Response::new(
+            Box::pin(output_stream) as Self::GetFileStream
+        ))
     }
 }
 
-    #[allow(dead_code)]
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ServerBuilder {
     id: String,
@@ -360,32 +413,35 @@ impl ServerBuilder {
     #[allow(dead_code)]
     pub fn new() -> Self {
         let id = Uuid::new_v4().to_string();
-        Self{
+        Self {
             id: id.clone(),
             nickname: id,
             shared: Vec::new(),
             listen: false,
             broadcasting: false,
-            serve_addr: SocketAddr::new(Ipv4Addr::new(0,0,0,0).into(), 9001),
+            serve_addr: SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 9001),
         }
     }
 
     pub fn build(self) -> Server {
-        Server { 
+        Server {
             id: self.id,
-             nickname: Arc::new(RwLock::new(self.nickname)),
-             shared: Arc::new(RwLock::new(self.shared
-                .iter()
-                .map(|d| Directory {
-                    name: d.to_string_lossy().to_string(),
-                    paths: vec![d.to_string_lossy().to_string()],
-                })
-                .collect())),
-             event_listening: Arc::new(RwLock::new(self.listen)),
-             broadcasting: Arc::new(RwLock::new(self.broadcasting)),
-             serving: Arc::new(RwLock::new(false)),
-             tx: None,
-             serve_addr: self.serve_addr }
+            nickname: Arc::new(RwLock::new(self.nickname)),
+            shared: Arc::new(RwLock::new(
+                self.shared
+                    .iter()
+                    .map(|d| Directory {
+                        name: d.to_string_lossy().to_string(),
+                        paths: vec![d.to_string_lossy().to_string()],
+                    })
+                    .collect(),
+            )),
+            event_listening: Arc::new(RwLock::new(self.listen)),
+            broadcasting: Arc::new(RwLock::new(self.broadcasting)),
+            serving: Arc::new(RwLock::new(false)),
+            tx: None,
+            serve_addr: self.serve_addr,
+        }
     }
 
     #[allow(dead_code)]
@@ -406,19 +462,19 @@ impl ServerBuilder {
     #[allow(dead_code)]
     pub fn set_nickname(mut self, name: String) -> Self {
         self.nickname = name;
-        self 
+        self
     }
 
     #[allow(dead_code)]
     pub fn enable_eventlistening(mut self) -> Self {
         self.listen = true;
-        self 
+        self
     }
-    
+
     #[allow(dead_code)]
     pub fn enable_broadcasting(mut self) -> Self {
         self.broadcasting = true;
-        self 
+        self
     }
 }
 
@@ -450,7 +506,7 @@ pub struct SvBuilder {
     nickname: Arc<RwLock<String>>,
     shared: Arc<RwLock<Vec<Directory>>>,
     manager_tx: Sender<Message>,
-    manager_rx: Receiver<Message>
+    manager_rx: Receiver<Message>,
 }
 
 impl SvBuilder {
@@ -458,28 +514,26 @@ impl SvBuilder {
     pub fn new(nickname: String, shared: Vec<String>) -> Self {
         let (tx, rx) = mpsc::channel::<Message>(128);
         let nick = Arc::new(RwLock::new(nickname));
-        let dirs = Arc::new(RwLock::new(shared
-            .iter()
-            .map(|d| Directory {
-                name: d.to_string(),
-                paths: vec![d.to_string()],
-            })
-            .collect()));
+        let dirs = Arc::new(RwLock::new(
+            shared
+                .iter()
+                .map(|d| Directory {
+                    name: d.to_string(),
+                    paths: vec![d.to_string()],
+                })
+                .collect(),
+        ));
 
-        Self{
-            id:Uuid::new_v4().to_string(),
+        Self {
+            id: Uuid::new_v4().to_string(),
             nickname: nick,
             manager_tx: tx,
             manager_rx: rx,
             shared: dirs,
-        }      
+        }
+    }
 }
 
-
-
-}
-
-    
 #[allow(dead_code)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -493,27 +547,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enable_broadcasting()
         .build();
 
-    let (t,mut r) = s.run().await;
+    let (t, mut r) = s.run().await;
     let _ = t.send(Message::AddDir(PathBuf::from("C:/Test1"))).await;
     let _ = t.send(Message::RemoveDir(PathBuf::from("Test1"))).await;
     let _ = t.send(Message::SetNickname("Nick_123".to_string())).await;
-    let _ = t.send(Message::StartServe(Some(SocketAddr::new(Ipv4Addr::new(0,0,0,0).into(), 50051)))).await;
+    let _ = t
+        .send(Message::StartServe(Some(SocketAddr::new(
+            Ipv4Addr::new(0, 0, 0, 0).into(),
+            50051,
+        ))))
+        .await;
     let _ = t.send(Message::StartBroadcast).await;
     let _ = t.send(Message::StartListen).await;
 
     // thread::sleep(Duration::from_secs(20));
 
     // let _ = t.send(Message::Exit).await;
-    
+
     while let Some(msg) = r.recv().await {
         match msg {
             MessageResponse::Done(m) => {
                 info!("DONE = {:?}", m);
-            },
+            }
             MessageResponse::Err(e) => {
                 info!("ERROR = {:?}", e);
             }
         };
-    };
+    }
     Ok(())
 }

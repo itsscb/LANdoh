@@ -31,25 +31,24 @@ impl Client {
         addr: String,
         files: Vec<FileMetaData>,
     ) -> Result<(Vec<String>, Vec<String>), Box<dyn Error>> {
-
         let mut success: Vec<String> = vec![];
         let mut fail: Vec<String> = vec![];
 
         for file in files {
-                let mut ok = false;
-                match self.get_file(addr.to_string(), &file).await {
-                    Ok(_) => {
-                        ok = true;
-                    }
-                    Err(err) => {
-                        error!("{:?}", err);
-                    }
-                };
-                if ok {
-                    success.push(file.path);
-                } else {
-                    fail.push(file.path);
+            let mut ok = false;
+            match self.get_file(addr.to_string(), &file).await {
+                Ok(_) => {
+                    ok = true;
                 }
+                Err(err) => {
+                    error!("{:?}", err);
+                }
+            };
+            if ok {
+                success.push(file.path);
+            } else {
+                fail.push(file.path);
+            }
         }
 
         Ok((success, fail))
@@ -152,7 +151,7 @@ impl Client {
 
         match client.get_directory(request).await {
             Ok(resp) => Ok(resp.into_inner().files),
-            Err(err) => Err(Box::new(err))
+            Err(err) => Err(Box::new(err)),
         }
     }
 }

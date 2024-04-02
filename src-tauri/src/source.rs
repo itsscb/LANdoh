@@ -6,7 +6,7 @@ pub struct Source {
     pub nickname: String,
     pub shared_directories: Vec<String>,
     pub ip: Option<String>,
-    pub timestamp: DateTime<Utc>
+    pub timestamp: DateTime<Utc>,
 }
 
 impl Source {
@@ -21,7 +21,7 @@ impl Source {
             nickname,
             ip,
             shared_directories,
-            timestamp: Utc::now()
+            timestamp: Utc::now(),
         }
     }
 
@@ -31,15 +31,14 @@ impl Source {
         ip: Option<String>,
         shared_directories: Vec<String>,
     ) {
-            self.nickname = nickname;
-            self.ip = ip;
-            self.shared_directories = shared_directories;
-            self.timestamp = Utc::now();
-        }
+        self.nickname = nickname;
+        self.ip = ip;
+        self.shared_directories = shared_directories;
+        self.timestamp = Utc::now();
+    }
 
     pub fn is_outdated(&self) -> bool {
         let diff = Utc::now().time() - self.timestamp.time();
         diff.num_seconds() > 30
     }
-    }
-
+}

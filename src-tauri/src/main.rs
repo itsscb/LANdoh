@@ -24,14 +24,20 @@ struct Payload {
     id: String,
     nickname: String,
     ip: Option<String>,
-    timestamp: DateTime<Utc>
+    timestamp: DateTime<Utc>,
 }
 
 impl Payload {
-    pub fn new(name: String, id: String, nickname: String, ip: Option<String>, timestamp: DateTime<Utc>) -> Self {
-        Payload{
+    pub fn new(
+        name: String,
+        id: String,
+        nickname: String,
+        ip: Option<String>,
+        timestamp: DateTime<Utc>,
+    ) -> Self {
+        Payload {
             name,
-            id, 
+            id,
             nickname,
             ip,
             timestamp,
@@ -40,7 +46,7 @@ impl Payload {
 }
 
 #[tauri::command]
-async fn open_dir(path: String) -> Result<(),()> {
+async fn open_dir(path: String) -> Result<(), ()> {
     let _ = Command::new("explorer").arg(path).spawn();
     Ok(())
 }
@@ -48,14 +54,14 @@ async fn open_dir(path: String) -> Result<(),()> {
 #[tauri::command]
 async fn serve(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<(), ()> {
     let a = Arc::clone(&state);
-        a.lock().await.serve().await;
+    a.lock().await.serve().await;
     Ok(())
 }
 
 #[tauri::command]
 async fn broadcast(state: tauri::State<'_, Arc<tokio::sync::Mutex<App>>>) -> Result<(), ()> {
     let a = Arc::clone(&state);
-        a.lock().await.broadcast().await;
+    a.lock().await.broadcast().await;
     Ok(())
 }
 
@@ -141,38 +147,42 @@ async fn request_dir(
 
         info!("REQUESTING: {} from {:?}", dir, addr);
 
-        let files = match c
-            .get_directory(dir.clone(), addr.to_string())
-            .await {
-                Ok(v) => v,
-                Err(_) => {
-                    let _ = w.emit_all("files", FilePayload{
+        let files = match c.get_directory(dir.clone(), addr.to_string()).await {
+            Ok(v) => v,
+            Err(_) => {
+                let _ = w.emit_all(
+                    "files",
+                    FilePayload {
                         id,
                         dir,
                         successful: vec![],
                         failed: vec!["total failure".to_string()],
-                    });
-                    
-                    return;
-                    }
-            };
+                    },
+                );
 
-            #[derive(Serialize, Clone)]
+                return;
+            }
+        };
+
+        #[derive(Serialize, Clone)]
         struct FilePayload {
             id: String,
             dir: String,
             successful: Vec<String>,
-            failed: Vec<String>
+            failed: Vec<String>,
         }
 
         match c.get_all_files(addr.to_string(), files).await {
             Ok((s, f)) => {
-                let _ = w.emit_all("files", FilePayload{
-                    id,
-                    dir,
-                    successful: s,
-                    failed: f
-                });
+                let _ = w.emit_all(
+                    "files",
+                    FilePayload {
+                        id,
+                        dir,
+                        successful: s,
+                        failed: f,
+                    },
+                );
             }
             Err(_) => {}
         };
@@ -196,20 +206,19 @@ async fn listen_for(
     let w1 = Arc::clone(&w);
     let a = Arc::clone(&state);
     let b = Arc::clone(&state);
-    
+
     tauri::async_runtime::spawn(async move {
         loop {
-                    thread::sleep(Duration::from_secs(15));
-{       
-    
-    let c = b.lock().await;
-    let mut dirs = c.sources.lock().await;
-    let len = dirs.len();
-    dirs.retain(|d| !d.is_outdated());
-    if len == dirs.len() {
-        continue;
-    }
-    let mut payload: Vec<Payload> = vec![];
+            thread::sleep(Duration::from_secs(15));
+            {
+                let c = b.lock().await;
+                let mut dirs = c.sources.lock().await;
+                let len = dirs.len();
+                dirs.retain(|d| !d.is_outdated());
+                if len == dirs.len() {
+                    continue;
+                }
+                let mut payload: Vec<Payload> = vec![];
                 dirs.iter().for_each(|so| {
                     so.shared_directories.iter().for_each(|d| {
                         payload.push(Payload::new(
@@ -229,8 +238,8 @@ async fn listen_for(
                         warn!("Error emitting message: {:?}", err);
                     }
                 }
-}        
-}
+            }
+        }
     });
     tauri::async_runtime::spawn(async move {
         let rx = a.lock().await.listen().await;

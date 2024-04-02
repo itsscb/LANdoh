@@ -4,8 +4,8 @@ mod model;
 pub mod multicast;
 mod pb;
 mod server;
-mod sv;
 pub mod source;
+mod sv;
 
 pub fn shorten_path(name: String, path: String) -> String {
     let start: usize;

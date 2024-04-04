@@ -53,7 +53,7 @@ walkdir = "2"
 
 [[bin]]
 name = "messaging"
-path = "src/sv.rs"
+path = "src/server/main.rs"
 
 
 [features]

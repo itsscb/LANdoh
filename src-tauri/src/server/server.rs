@@ -19,7 +19,9 @@ use std::{println as info, println as warn, println as debug, println as error};
 #[cfg(not(test))]
 use log::{debug, error, info, warn};
 
-use super::proto::pb::{self, Directory};
+use crate::shorten_path;
+
+use super::proto::pb::{self, Directory, Game};
 use super::{Order, OrderResponse};
 
 #[allow(dead_code)]
@@ -27,7 +29,7 @@ use super::{Order, OrderResponse};
 pub struct Server {
     id: String,
     nickname: Arc<RwLock<String>>,
-    shared: Arc<RwLock<Vec<Directory>>>,
+    shared: Arc<RwLock<Vec<Game>>>,
     event_listening: Arc<RwLock<bool>>,
     broadcasting: Arc<RwLock<bool>>,
     serving: Arc<RwLock<bool>>,
@@ -40,29 +42,41 @@ impl Server {
         Builder::new()
     }
 
-    pub async fn is_broadcasting(&self) -> bool {
+    pub(super) async fn list_games(&self) -> Vec<String> {
+        self.shared
+            .read()
+            .await
+            .iter()
+            .map(|g| g.name.clone())
+            .collect()
+        // .iter()
+        // .map(|d| d.name.clone())
+        // .collect()
+    }
+
+    pub(super) async fn is_broadcasting(&self) -> bool {
         *self.broadcasting.read().await
     }
-    pub async fn is_event_listening(&self) -> bool {
+    pub(super) async fn is_event_listening(&self) -> bool {
         *self.event_listening.read().await
     }
     pub fn get_id(&self) -> String {
         self.id.clone()
     }
-    pub fn get_address(&self) -> String {
+    pub(super) fn get_address(&self) -> String {
         self.serve_addr.to_string()
     }
-    pub async fn get_nickname(&self) -> String {
+    pub(super) async fn get_nickname(&self) -> String {
         self.nickname.read().await.clone().to_string()
     }
 
-    pub async fn send(&self, m: Order) {
+    pub(super) async fn send(&self, m: Order) {
         if let Some(t) = &self.tx {
             let _ = t.send(m).await;
         }
     }
 
-    pub fn serve(self) -> oneshot::Sender<()> {
+    pub(super) fn serve(self) -> oneshot::Sender<()> {
         let (tx, rx) = oneshot::channel::<()>();
         let serving = self.serving.clone();
         tokio::spawn(async move {
@@ -139,10 +153,16 @@ impl Server {
                             debug!("Got 'AddDir' Request: {:?}", &d);
                             let dir = d.to_string_lossy().to_string();
                             {
-                                sv.shared.write().await.push(Directory {
-                                    name: dir.clone(),
-                                    paths: vec![dir],
-                                });
+                                todo!("Implement OrderAddGame")
+                                // sv.shared.write().await.push(
+                                //     Game{
+                                //         name
+                                //     }
+                                //     d.to_string_lossy().to_string(), //     Directory {
+                                //                                      //     name: dir.clone(),
+                                //                                      //     children: todo!(),
+                                //                                      // }
+                                // );
                             }
                             let _ = rtx.send(OrderResponse::Done(Order::AddDir(d))).await;
                         }
@@ -152,7 +172,8 @@ impl Server {
                                 sv.shared
                                     .write()
                                     .await
-                                    .retain(|d| d.name != name.to_string_lossy().to_string());
+                                    .retain(|d| *d.name != name.to_string_lossy().to_string());
+                                // .retain(|d| d.name != name.to_string_lossy().to_string());
                             }
                             let _ = rtx.send(OrderResponse::Done(Order::RemoveDir(name))).await;
                         }
@@ -284,10 +305,17 @@ impl Builder {
             shared: Arc::new(RwLock::new(
                 self.shared
                     .iter()
-                    .map(|d| Directory {
-                        name: d.to_string_lossy().to_string(),
-                        paths: vec![d.to_string_lossy().to_string()],
-                    })
+                    .map(
+                        |d| Game {
+                            name: d.to_string_lossy().to_string(),
+                            path: d.to_string_lossy().to_string(),
+                            directory: None,
+                            reg_key: vec![],
+                        }, //     Directory {
+                           //     name: d.to_string_lossy().to_string(),
+                           //     children: todo!(),
+                           // }
+                    )
                     .collect(),
             )),
             event_listening: Arc::new(RwLock::new(self.listen)),

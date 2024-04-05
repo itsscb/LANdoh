@@ -6,6 +6,7 @@ service lan_doh {
     rpc GetDirectory (GetDirectoryRequest) returns (GetDirectoryResponse);
     rpc GetFile (GetFileRequest) returns (stream GetFileResponse);
     rpc ListDirectories ( ListDirectoriesRequest ) returns ( ListDirectoriesResponse);
+    rpc Healthz ( HealthzRequest ) returns ( HealthzResponse );
 }
 
 message ListDirectoriesRequest {}
@@ -42,4 +43,14 @@ message FileMetaData {
 message Directory {
     string name = 1;
     repeated string paths = 2;
+}
+
+message HealthzRequest {}
+
+message HealthzResponse{
+    bool EventListener = 1;
+    bool Broadcaster = 2;
+    string address = 3;
+    string id = 4;
+    string nickname = 5;
 }

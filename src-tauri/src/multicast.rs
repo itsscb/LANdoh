@@ -98,7 +98,11 @@ pub mod receiver {
                             let mut dirs = sources.lock().await;
                             match dirs.iter_mut().find(|ref i| i.id == p.id) {
                                 Some(ref mut i) => {
-                                    i.update(p.nickname, Some(remote_addr.ip().to_string()), p.shared_directories);
+                                    i.update(
+                                        p.nickname,
+                                        Some(remote_addr.ip().to_string()),
+                                        p.shared_directories,
+                                    );
                                 }
                                 None => dirs.push(Source::new(
                                     p.id,

@@ -28,7 +28,7 @@ use crate::multicast::{
     Sender,
 };
 
-pub use crate::server::{Directory, Server};
+pub use crate::legacy_server::{Directory, LegacyServer};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Payload<T> {
@@ -190,7 +190,7 @@ impl App {
     pub async fn serve(&mut self) {
         let s = self.config.lock().await;
         let c = Arc::clone(&self.config);
-        let server = Server::new(c);
+        let server = LegacyServer::new(c);
         let addr = s.address;
         let _ = env_logger::try_init();
 

@@ -51,6 +51,10 @@ tauri-build = { version = "1.5.1", features = [] }
 tonic-build = "0.11.0"
 walkdir = "2"
 
+[[bin]]
+name = "messaging"
+path = "src/server/main.rs"
+
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.

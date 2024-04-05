@@ -61,11 +61,28 @@ pub struct Directory {
     #[prost(string, repeated, tag = "2")]
     pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HealthzRequest {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HealthzResponse {
+    #[prost(bool, tag = "1")]
+    pub event_listener: bool,
+    #[prost(bool, tag = "2")]
+    pub broadcaster: bool,
+    #[prost(string, tag = "3")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub nickname: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod lan_doh_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct LanDohClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -109,9 +126,8 @@ pub mod lan_doh_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + Send + Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + Send + Sync,
         {
             LanDohClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -149,23 +165,19 @@ pub mod lan_doh_client {
         pub async fn get_directory(
             &mut self,
             request: impl tonic::IntoRequest<super::GetDirectoryRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetDirectoryResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::GetDirectoryResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/pb.lan_doh/GetDirectory");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("pb.lan_doh", "GetDirectory"));
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pb.lan_doh", "GetDirectory"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_file(
@@ -175,44 +187,52 @@ pub mod lan_doh_client {
             tonic::Response<tonic::codec::Streaming<super::GetFileResponse>>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/pb.lan_doh/GetFile");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("pb.lan_doh", "GetFile"));
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pb.lan_doh", "GetFile"));
             self.inner.server_streaming(req, path, codec).await
         }
         pub async fn list_directories(
             &mut self,
             request: impl tonic::IntoRequest<super::ListDirectoriesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ListDirectoriesResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::ListDirectoriesResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/pb.lan_doh/ListDirectories",
-            );
+            let path = http::uri::PathAndQuery::from_static("/pb.lan_doh/ListDirectories");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("pb.lan_doh", "ListDirectories"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn healthz(
+            &mut self,
+            request: impl tonic::IntoRequest<super::HealthzRequest>,
+        ) -> std::result::Result<tonic::Response<super::HealthzResponse>, tonic::Status> {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/pb.lan_doh/Healthz");
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("pb.lan_doh", "Healthz"));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -227,15 +247,11 @@ pub mod lan_doh_server {
         async fn get_directory(
             &self,
             request: tonic::Request<super::GetDirectoryRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::GetDirectoryResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::GetDirectoryResponse>, tonic::Status>;
         /// Server streaming response type for the GetFile method.
         type GetFileStream: tonic::codegen::tokio_stream::Stream<
                 Item = std::result::Result<super::GetFileResponse, tonic::Status>,
-            >
-            + Send
+            > + Send
             + 'static;
         async fn get_file(
             &self,
@@ -244,10 +260,11 @@ pub mod lan_doh_server {
         async fn list_directories(
             &self,
             request: tonic::Request<super::ListDirectoriesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ListDirectoriesResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::ListDirectoriesResponse>, tonic::Status>;
+        async fn healthz(
+            &self,
+            request: tonic::Request<super::HealthzRequest>,
+        ) -> std::result::Result<tonic::Response<super::HealthzResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct LanDohServer<T: LanDoh> {
@@ -272,10 +289,7 @@ pub mod lan_doh_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -331,23 +345,16 @@ pub mod lan_doh_server {
                 "/pb.lan_doh/GetDirectory" => {
                     #[allow(non_camel_case_types)]
                     struct GetDirectorySvc<T: LanDoh>(pub Arc<T>);
-                    impl<
-                        T: LanDoh,
-                    > tonic::server::UnaryService<super::GetDirectoryRequest>
-                    for GetDirectorySvc<T> {
+                    impl<T: LanDoh> tonic::server::UnaryService<super::GetDirectoryRequest> for GetDirectorySvc<T> {
                         type Response = super::GetDirectoryResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetDirectoryRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as LanDoh>::get_directory(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as LanDoh>::get_directory(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -377,24 +384,17 @@ pub mod lan_doh_server {
                 "/pb.lan_doh/GetFile" => {
                     #[allow(non_camel_case_types)]
                     struct GetFileSvc<T: LanDoh>(pub Arc<T>);
-                    impl<
-                        T: LanDoh,
-                    > tonic::server::ServerStreamingService<super::GetFileRequest>
-                    for GetFileSvc<T> {
+                    impl<T: LanDoh> tonic::server::ServerStreamingService<super::GetFileRequest> for GetFileSvc<T> {
                         type Response = super::GetFileResponse;
                         type ResponseStream = T::GetFileStream;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::ResponseStream>,
-                            tonic::Status,
-                        >;
+                        type Future =
+                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::GetFileRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as LanDoh>::get_file(&inner, request).await
-                            };
+                            let fut = async move { <T as LanDoh>::get_file(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -424,15 +424,11 @@ pub mod lan_doh_server {
                 "/pb.lan_doh/ListDirectories" => {
                     #[allow(non_camel_case_types)]
                     struct ListDirectoriesSvc<T: LanDoh>(pub Arc<T>);
-                    impl<
-                        T: LanDoh,
-                    > tonic::server::UnaryService<super::ListDirectoriesRequest>
-                    for ListDirectoriesSvc<T> {
+                    impl<T: LanDoh> tonic::server::UnaryService<super::ListDirectoriesRequest>
+                        for ListDirectoriesSvc<T>
+                    {
                         type Response = super::ListDirectoriesResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::ListDirectoriesRequest>,
@@ -467,18 +463,52 @@ pub mod lan_doh_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        Ok(
-                            http::Response::builder()
-                                .status(200)
-                                .header("grpc-status", "12")
-                                .header("content-type", "application/grpc")
-                                .body(empty_body())
-                                .unwrap(),
-                        )
-                    })
+                "/pb.lan_doh/Healthz" => {
+                    #[allow(non_camel_case_types)]
+                    struct HealthzSvc<T: LanDoh>(pub Arc<T>);
+                    impl<T: LanDoh> tonic::server::UnaryService<super::HealthzRequest> for HealthzSvc<T> {
+                        type Response = super::HealthzResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::HealthzRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move { <T as LanDoh>::healthz(&inner, request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = HealthzSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
                 }
+                _ => Box::pin(async move {
+                    Ok(http::Response::builder()
+                        .status(200)
+                        .header("grpc-status", "12")
+                        .header("content-type", "application/grpc")
+                        .body(empty_body())
+                        .unwrap())
+                }),
             }
         }
     }

@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package landoh;
+
+service games_service {
+    rpc GetGame (GetGameRequest) returns (stream GetGameResponse);
+    rpc ListGames ( ListGamesRequest ) returns ( ListGamesResponse);
+    rpc Healthz ( HealthzRequest ) returns ( HealthzResponse );
+}
+
+message HealthzRequest {}
+
+message HealthzResponse{
+    bool EventListener = 1;
+    bool Broadcaster = 2;
+    string address = 3;
+    string id = 4;
+    string nickname = 5;
+}
+
+message ListGamesRequest {}
+
+message ListGamesResponse {
+    repeated string games = 1;
+}
+
+message GetGameRequest {
+    string name = 1;
+}
+
+message GetGameResponse {
+    oneof game_response {
+        File file = 1;
+        RegistryKey reg_key = 2;
+    }
+}
+
+message Path {
+    string path = 1;
+
+    enum DataLocation {
+        Default = 0;
+        AppDataRoaming = 1;
+        AppDataLocal = 2;
+        AppDataLocalLow = 3;
+        ProgramData = 4;
+    }
+    DataLocation location = 2;
+}
+
+message FileMetaData {
+    string extension = 1;
+    uint64 file_size = 2;
+
+}
+
+message File {
+    Path path = 1;
+    oneof file_payload {
+        FileMetaData file_meta_data = 4;
+        bytes chunk = 6;
+        string hash = 7;
+    }
+}
+
+message RegistryKey {
+    string type = 1;
+    string path = 2;
+    string key = 3;
+    string value = 4;
+}
+
+message Game {
+    string name = 1;
+    repeated Path paths = 2;
+    repeated RegistryKey reg_key = 3;
+}

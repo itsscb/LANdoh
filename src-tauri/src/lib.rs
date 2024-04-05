@@ -1,10 +1,12 @@
 pub mod app;
 pub mod client;
+mod legacy_server;
 mod model;
 pub mod multicast;
 mod pb;
-mod server;
 pub mod source;
+
+pub mod server;
 
 pub fn shorten_path(name: String, path: String) -> String {
     let start: usize;

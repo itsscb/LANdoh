@@ -21,7 +21,9 @@ use log::{debug, error, info, warn};
 
 use crate::shorten_path;
 
-use super::proto::pb::{self, Directory, Game};
+use super::proto::pb::path::DataLocation;
+use super::proto::pb::Path;
+use super::proto::pb::{self, Game};
 use super::{Order, OrderResponse};
 
 #[allow(dead_code)]
@@ -91,7 +93,7 @@ impl Server {
                 *serving.write().await = true;
             }
             let _ = tonic::transport::Server::builder()
-                .add_service(pb::lan_doh_server::LanDohServer::new(self))
+                .add_service(pb::games_service_server::GamesServiceServer::new(self))
                 .add_service(reflection_service)
                 .serve_with_shutdown(addr, async { drop(rx.await) })
                 .await;
@@ -308,8 +310,10 @@ impl Builder {
                     .map(
                         |d| Game {
                             name: d.to_string_lossy().to_string(),
-                            path: d.to_string_lossy().to_string(),
-                            directory: None,
+                            paths: vec![Path {
+                                path: d.to_string_lossy().to_string(),
+                                location: DataLocation::Default.into(),
+                            }],
                             reg_key: vec![],
                         }, //     Directory {
                            //     name: d.to_string_lossy().to_string(),

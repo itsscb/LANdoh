@@ -3,7 +3,7 @@ pub use order::Order;
 pub use order::OrderResponse;
 
 mod proto;
-pub use proto::pb::Directory;
+pub use proto::pb::Game;
 
 mod server;
 pub use server::Builder;

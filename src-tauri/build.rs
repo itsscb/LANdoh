@@ -11,33 +11,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .type_attribute("File", "#[derive(serde::Serialize, serde::Deserialize)]")
         .type_attribute("Game", "#[derive(serde::Serialize, serde::Deserialize)]")
-        .type_attribute("AppData", "#[derive(serde::Serialize, serde::Deserialize)]")
-        .type_attribute(
-            "Game.user_data",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
         .type_attribute(
             "RegistryKey",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
-        .type_attribute(
-            "ProgramData",
+        .type_attribute("Path", "#[derive(serde::Serialize, serde::Deserialize)]")
+        .enum_attribute(
+            "Path.location",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .enum_attribute(
-            "File.file_type",
+            "File.file_payload",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
             "FileMetaData",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
-        .type_attribute(
-            "Directory",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
-        .type_attribute(
-            "DirectoryMetaData",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .file_descriptor_set_path(out_dir.join("pb_descriptor.bin"))

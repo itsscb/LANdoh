@@ -21,8 +21,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_nickname("MyNick".to_string())
         .add_share(PathBuf::from("C:\\temp"))
         // .set_serve_address(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 9001))
-        .enable_eventlistening()
-        .enable_broadcasting()
+        // .enable_eventlistening()
+        // .enable_broadcasting()
         .build();
 
     let (t, mut r) = s.run().await;

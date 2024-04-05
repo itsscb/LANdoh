@@ -51,9 +51,6 @@ impl Server {
             .iter()
             .map(|g| g.name.clone())
             .collect()
-        // .iter()
-        // .map(|d| d.name.clone())
-        // .collect()
     }
 
     pub(super) async fn is_broadcasting(&self) -> bool {
@@ -156,15 +153,6 @@ impl Server {
                             let dir = d.to_string_lossy().to_string();
                             {
                                 todo!("Implement OrderAddGame")
-                                // sv.shared.write().await.push(
-                                //     Game{
-                                //         name
-                                //     }
-                                //     d.to_string_lossy().to_string(), //     Directory {
-                                //                                      //     name: dir.clone(),
-                                //                                      //     children: todo!(),
-                                //                                      // }
-                                // );
                             }
                             let _ = rtx.send(OrderResponse::Done(Order::AddDir(d))).await;
                         }
@@ -175,7 +163,6 @@ impl Server {
                                     .write()
                                     .await
                                     .retain(|d| *d.name != name.to_string_lossy().to_string());
-                                // .retain(|d| d.name != name.to_string_lossy().to_string());
                             }
                             let _ = rtx.send(OrderResponse::Done(Order::RemoveDir(name))).await;
                         }
@@ -307,19 +294,14 @@ impl Builder {
             shared: Arc::new(RwLock::new(
                 self.shared
                     .iter()
-                    .map(
-                        |d| Game {
-                            name: d.to_string_lossy().to_string(),
-                            paths: vec![Path {
-                                path: d.to_string_lossy().to_string(),
-                                location: DataLocation::Default.into(),
-                            }],
-                            reg_key: vec![],
-                        }, //     Directory {
-                           //     name: d.to_string_lossy().to_string(),
-                           //     children: todo!(),
-                           // }
-                    )
+                    .map(|d| Game {
+                        name: d.to_string_lossy().to_string(),
+                        paths: vec![Path {
+                            path: d.to_string_lossy().to_string(),
+                            location: DataLocation::Default.into(),
+                        }],
+                        reg_key: vec![],
+                    })
                     .collect(),
             )),
             event_listening: Arc::new(RwLock::new(self.listen)),
